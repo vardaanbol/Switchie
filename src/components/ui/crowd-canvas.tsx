@@ -124,9 +124,13 @@ const CrowdCanvas = ({ src, rows = 15, cols = 7 }: CrowdCanvasProps) => {
           peep.height = nextRect[3];
         },
         render: (context: CanvasRenderingContext2D) => {
+          const stageScale = Math.min(
+            1,
+            Math.max(0.55, (context.canvas.width / (devicePixelRatio || 1)) / 1200)
+          );
           context.save();
           context.translate(peep.x, peep.y);
-          context.scale(peep.scaleX, 1);
+          context.scale(peep.scaleX * stageScale, stageScale);
           context.drawImage(
             peep.image,
             peep.rect[0],
@@ -209,8 +213,18 @@ const CrowdCanvas = ({ src, rows = 15, cols = 7 }: CrowdCanvasProps) => {
     };
 
     const resize = () => {
-      stage.width = canvas.clientWidth;
-      stage.height = canvas.clientHeight;
+      const nextWidth = canvas.clientWidth;
+      const nextHeight = canvas.clientHeight;
+      // Ignore URL-bar-only height changes on mobile — they thrash the crowd.
+      const widthChanged = Math.abs(nextWidth - stage.width) > 8;
+      const heightChanged =
+        stage.width === 0 || Math.abs(nextHeight - stage.height) > 80;
+      if (!widthChanged && !heightChanged && stage.width > 0) {
+        return;
+      }
+
+      stage.width = nextWidth;
+      stage.height = nextHeight;
       canvas.width = stage.width * devicePixelRatio;
       canvas.height = stage.height * devicePixelRatio;
 
@@ -230,18 +244,23 @@ const CrowdCanvas = ({ src, rows = 15, cols = 7 }: CrowdCanvasProps) => {
     img.onload = init;
     img.src = config.src;
 
-    const handleResize = () => resize();
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 200);
+    };
     window.addEventListener("resize", handleResize);
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
       gsap.ticker.remove(render);
       crowd.forEach((peep) => peep.walk?.kill());
     };
   }, [src, rows, cols]);
 
   return (
-    <canvas ref={canvasRef} className="absolute bottom-0 h-[90vh] w-full" />
+    <canvas ref={canvasRef} className="absolute bottom-0 h-[90dvh] w-full" />
   );
 };
 

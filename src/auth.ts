@@ -27,6 +27,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+          scope: "openid email profile",
+        },
+      },
     }),
   ],
   session: { strategy: "jwt" },
@@ -36,35 +44,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider !== "google" || !account.providerAccountId) {
+        console.warn("[auth] AccessDenied: missing google account id");
         return false;
       }
-      if (!user.email || !user.name) {
+      if (!user.email) {
+        console.warn("[auth] AccessDenied: Google did not return an email");
         return false;
       }
 
-      await connectDB();
+      const name = user.name?.trim() || user.email.split("@")[0] || "User";
 
-      await User.findOneAndUpdate(
-        { googleId: account.providerAccountId },
-        {
-          $set: {
-            email: user.email,
-            name: user.name,
-            image: user.image ?? undefined,
-          },
-          $setOnInsert: {
-            googleId: account.providerAccountId,
-            profile: {
-              preferredLocations: [],
-              rolesOfInterest: [],
-              resumeParsedSkills: [],
-              emailDigestEnabled: true,
-              updatedAt: new Date(),
+      try {
+        await connectDB();
+
+        await User.findOneAndUpdate(
+          { googleId: account.providerAccountId },
+          {
+            $set: {
+              email: user.email,
+              name,
+              image: user.image ?? undefined,
+            },
+            $setOnInsert: {
+              googleId: account.providerAccountId,
+              profile: {
+                preferredLocations: [],
+                rolesOfInterest: [],
+                resumeParsedSkills: [],
+                emailDigestEnabled: true,
+                updatedAt: new Date(),
+              },
             },
           },
-        },
-        { upsert: true, new: true }
-      );
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        // Surface as AccessDenied otherwise — log the real cause for Vercel logs.
+        console.error("[auth] signIn DB failure", err);
+        return false;
+      }
 
       return true;
     },

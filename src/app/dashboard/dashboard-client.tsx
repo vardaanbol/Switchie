@@ -22,25 +22,16 @@ import {
 } from "@/lib/jobs/dashboard-job";
 import { filterJobsByExperience } from "@/lib/jobs/experience-filter";
 import { JobsCarousel } from "@/components/jobs/jobs-carousel";
+import { SawbladeMark } from "@/components/brand/sawblade-mark";
+import {
+  AppHeader,
+  HeaderAction,
+  HeaderLink,
+} from "@/components/layout/app-header";
 
 export type { DashboardJob };
 
 type DashboardView = "all" | "saved" | "applied" | "calendar";
-
-function SawbladeMark({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      aria-hidden="true"
-      className={className}
-      fill="currentColor"
-    >
-      <path d="M32 4l3.2 7.4 7.6-2.6-2.2 7.7 7.1 3.7-5.5 5.7 5.5 5.7-7.1 3.7 2.2 7.7-7.6-2.6L32 60l-3.2-7.4-7.6 2.6 2.2-7.7-7.1-3.7 5.5-5.7-5.5-5.7 7.1-3.7-2.2-7.7 7.6 2.6L32 4z" />
-      <circle cx="32" cy="32" r="10" fill="#fffef8" />
-      <circle cx="32" cy="32" r="4.5" />
-    </svg>
-  );
-}
 
 function greetingLines(name: string): Array<[string, string?]> {
   return [
@@ -98,38 +89,48 @@ function SuggestionCalendar({
     cells.push({ key, day: d });
   }
 
+  const agendaDays = useMemo(() => {
+    const days: Array<{ key: string; day: number; count: number }> = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${month.year}-${String(month.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const count = counts.get(key) ?? 0;
+      if (count > 0) days.push({ key, day: d, count });
+    }
+    return days;
+  }, [counts, daysInMonth, month.month, month.year]);
+
   function shiftMonth(delta: number) {
     const d = new Date(month.year, month.month + delta, 1);
     onMonthChange({ year: d.getFullYear(), month: d.getMonth() });
   }
 
   return (
-    <section className="rounded-lg border-[3px] border-black bg-white p-4 shadow-[5px_5px_0_#000] sm:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-lg border-[3px] border-black bg-white p-3 shadow-[5px_5px_0_#000] sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em]">
             Suggestion calendar
           </p>
           <p className="mt-1 text-sm font-medium text-black/55">
-            Hover a day, then open its yawns on a new page
+            Tap a day to open its yawns
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
           <button
             type="button"
             onClick={() => shiftMonth(-1)}
-            className="inline-flex size-10 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[3px_3px_0_#000] transition-transform hover:-translate-y-0.5"
+            className="inline-flex size-11 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[3px_3px_0_#000] transition-transform hover:-translate-y-0.5 sm:size-10"
             aria-label="Previous month"
           >
             <ChevronLeft className="size-4" />
           </button>
-          <div className="min-w-[9.5rem] rounded-md border-[3px] border-black bg-[#ffe566] px-3 py-2 text-center text-sm font-black shadow-[3px_3px_0_#000]">
+          <div className="min-w-0 flex-1 rounded-md border-[3px] border-black bg-[#ffe566] px-3 py-2.5 text-center text-sm font-black shadow-[3px_3px_0_#000] sm:min-w-[9.5rem] sm:flex-none">
             {MONTH_NAMES[month.month]} {month.year}
           </div>
           <button
             type="button"
             onClick={() => shiftMonth(1)}
-            className="inline-flex size-10 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[3px_3px_0_#000] transition-transform hover:-translate-y-0.5"
+            className="inline-flex size-11 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[3px_3px_0_#000] transition-transform hover:-translate-y-0.5 sm:size-10"
             aria-label="Next month"
           >
             <ChevronRight className="size-4" />
@@ -137,13 +138,42 @@ function SuggestionCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+      {/* Compact agenda list on very narrow phones */}
+      <div className="space-y-2 min-[400px]:hidden">
+        {agendaDays.length === 0 ? (
+          <p className="rounded-md border-[2.5px] border-black bg-[#fffef8] p-4 text-sm font-medium text-black/55">
+            No yawns this month yet. Hit REFRESH to ink some in.
+          </p>
+        ) : (
+          agendaDays.map((day) => (
+            <Link
+              key={day.key}
+              href={`/dashboard/day/${day.key}`}
+              className="flex min-h-11 items-center justify-between gap-3 rounded-md border-[2.5px] border-black bg-[#a8e6ff] px-3 py-3 text-sm font-black shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
+            >
+              <span>
+                {MONTH_NAMES[month.month].slice(0, 3)} {day.day}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                {day.count} yawn{day.count === 1 ? "" : "s"}
+                <ArrowUpRight className="size-4" />
+              </span>
+            </Link>
+          ))
+        )}
+      </div>
+
+      {/* Grid calendar from ~400px up */}
+      <div className="hidden min-[400px]:grid min-[400px]:grid-cols-7 min-[400px]:gap-1.5 sm:gap-2">
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
           <div
-            key={d}
-            className="pb-1 text-center text-[10px] font-black uppercase tracking-wider text-black/45"
+            key={`${d}-${i}`}
+            className="pb-1 text-center text-[11px] font-black uppercase tracking-wider text-black/45 sm:text-[10px]"
           >
-            {d}
+            <span className="sm:hidden">{d}</span>
+            <span className="hidden sm:inline">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][i]}
+            </span>
           </div>
         ))}
         {cells.map((cell, i) => {
@@ -158,19 +188,19 @@ function SuggestionCalendar({
               href={`/dashboard/day/${cell.key}`}
               aria-label={`Open yawns for ${cell.key}`}
               className={[
-                "group relative flex aspect-square flex-col items-center justify-center rounded-md border-[2.5px] border-black text-sm font-black transition-transform hover:-translate-y-0.5",
+                "group relative flex min-h-11 aspect-square flex-col items-center justify-center rounded-md border-[2.5px] border-black text-sm font-black transition-transform hover:-translate-y-0.5",
                 count > 0
                   ? "bg-[#a8e6ff] shadow-[2px_2px_0_#000] hover:bg-[#ffe566]"
                   : "bg-[#fffef8] shadow-[2px_2px_0_#000] hover:bg-[#ffe566]",
                 isToday ? "ring-2 ring-black ring-offset-1" : "",
               ].join(" ")}
             >
-              <span className="transition-opacity group-hover:opacity-0">
+              <span className="transition-opacity [@media(hover:hover)]:group-hover:opacity-0">
                 {cell.day}
               </span>
-              <ArrowUpRight className="pointer-events-none absolute size-5 opacity-0 transition-opacity group-hover:opacity-100" />
+              <ArrowUpRight className="pointer-events-none absolute size-5 opacity-0 transition-opacity max-sm:hidden [@media(hover:hover)]:group-hover:opacity-100" />
               {count > 0 ? (
-                <span className="absolute bottom-1 rounded-sm bg-black px-1 text-[9px] font-black text-white">
+                <span className="absolute bottom-0.5 rounded-sm bg-black px-1 text-[10px] font-black text-white sm:bottom-1 sm:text-[9px]">
                   {count}
                 </span>
               ) : null}
@@ -316,42 +346,34 @@ export function DashboardClient({
   ];
 
   return (
-    <div className="comic-paper relative min-h-screen overflow-x-hidden text-black">
+    <div className="comic-paper relative min-h-dvh overflow-x-hidden text-black">
       <div className="comic-halftone pointer-events-none absolute inset-0 opacity-[0.35]" />
 
       <SawbladeMark className="pointer-events-none absolute -left-8 top-28 size-28 text-black/[0.06] sm:size-36" />
       <SawbladeMark className="pointer-events-none absolute -right-10 bottom-40 size-40 rotate-12 text-black/[0.05]" />
 
-      <header className="relative z-20 border-b-[3px] border-black bg-[#fffef8]/90 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-3.5 sm:px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-sm font-black tracking-tight"
-          >
-            <SawbladeMark className="size-5 text-black" />
-            Y.A.W.N
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/settings"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
-            >
+      <AppHeader
+        actions={
+          <>
+            <HeaderLink href="/settings" aria-label="Settings">
               <Settings className="size-3.5" />
               <span className="hidden sm:inline">Settings</span>
-            </Link>
-            <button
-              type="button"
+            </HeaderLink>
+            <HeaderAction
               onClick={refreshNow}
               disabled={refreshing}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-[#ffe566] px-3.5 text-sm font-black shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+              aria-label={refreshing ? "Searching" : "Refresh jobs"}
+              className="bg-[#ffe566] font-black"
             >
               <RefreshCw
                 className={`size-3.5 ${refreshing ? "animate-spin" : ""}`}
               />
-              {refreshing ? "SEARCH…" : "REFRESH"}
-            </button>
-            <button
-              type="button"
+              <span className="hidden sm:inline">
+                {refreshing ? "SEARCH…" : "REFRESH"}
+              </span>
+            </HeaderAction>
+            <HeaderAction
+              aria-label="Sign out"
               onClick={() => {
                 try {
                   sessionStorage.removeItem(`yawn-greeting:${firstName}`);
@@ -360,23 +382,26 @@ export function DashboardClient({
                 }
                 signOut({ callbackUrl: "/" });
               }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
             >
               <LogOut className="size-3.5" />
               <span className="hidden sm:inline">Out</span>
-            </button>
-          </div>
-        </div>
-      </header>
+            </HeaderAction>
+          </>
+        }
+      />
 
-      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-9 sm:px-6">
-        <section className="relative overflow-hidden rounded-lg border-[3px] border-black bg-[#fffef8] p-6 shadow-[6px_6px_0_#000] sm:p-8">
-          <div className="absolute -right-3 -top-3 rotate-12">
-            <div className="rounded-md border-[3px] border-black bg-[#ff6b6b] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-[2px_2px_0_#000]">
-              Issue #{Math.max(view === "calendar" ? counts.all : filtered.length, 1)}
+      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-6 px-3 py-7 sm:gap-8 sm:px-6 sm:py-9">
+        <section className="relative overflow-hidden rounded-lg border-[3px] border-black bg-[#fffef8] p-4 shadow-[5px_5px_0_#000] sm:p-8 sm:shadow-[6px_6px_0_#000]">
+          <div className="mb-3 sm:absolute sm:-right-3 sm:-top-3 sm:mb-0 sm:rotate-12">
+            <div className="inline-block rounded-md border-[3px] border-black bg-[#ff6b6b] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-[2px_2px_0_#000]">
+              Issue #
+              {Math.max(
+                view === "calendar" ? counts.all : filtered.length,
+                1
+              )}
             </div>
           </div>
-          <h1 className="font-black tracking-tight text-4xl leading-[0.95] sm:text-5xl md:text-6xl">
+          <h1 className="break-words font-black tracking-tight text-3xl leading-[1.05] sm:pr-16 sm:text-5xl sm:leading-[0.95] md:text-6xl">
             {greetings[greetingIndex][0]}
             {greetings[greetingIndex][1] ? (
               <>
@@ -394,13 +419,14 @@ export function DashboardClient({
               <button
                 key={tab.id}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setView(tab.id)}
                 className={[
-                  "flex items-center justify-between gap-2 rounded-md border-[3px] border-black px-3 py-3 text-left shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5",
+                  "flex min-h-11 items-center justify-between gap-2 rounded-md border-[3px] border-black px-2.5 py-3 text-left shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 sm:px-3",
                   active ? tab.accent : "bg-white",
                 ].join(" ")}
               >
-                <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em]">
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] sm:gap-2 sm:text-[11px] sm:tracking-[0.12em]">
                   {tab.icon}
                   {tab.label}
                 </span>
@@ -428,20 +454,6 @@ export function DashboardClient({
           />
         )}
       </main>
-
-      <style>{`
-        .comic-paper {
-          background-color: #f7f7f2;
-          background-image:
-            linear-gradient(rgba(0,0,0,0.035) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,0,0,0.035) 1px, transparent 1px);
-          background-size: 22px 22px;
-        }
-        .comic-halftone {
-          background-image: radial-gradient(circle, rgba(0,0,0,0.09) 1px, transparent 1.2px);
-          background-size: 10px 10px;
-        }
-      `}</style>
     </div>
   );
 }

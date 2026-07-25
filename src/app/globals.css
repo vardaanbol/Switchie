@@ -126,5 +126,47 @@
   }
   html {
     @apply font-sans;
+    overflow-x: clip;
+  }
+}
+
+/* Shared comic / neo-brutalist page textures */
+.comic-paper {
+  background-color: #f7f7f2;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.comic-halftone {
+  background-image: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0.09) 1px,
+    transparent 1.2px
+  );
+  background-size: 10px 10px;
+}
+
+.landing-panel-dots {
+  background-image: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0.08) 1px,
+    transparent 1.2px
+  );
+  background-size: 8px 8px;
+}
+
+/* Long generated content (resume previews, job descriptions) */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comic-tilt,
+  .hover\:-translate-y-0\.5:hover,
+  .hover\:-translate-y-1:hover {
+    transform: none !important;
   }
 }

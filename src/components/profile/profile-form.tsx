@@ -56,7 +56,8 @@ function ComicInput(props: React.ComponentProps<"input">) {
     <input
       {...props}
       className={[
-        "h-12 w-full rounded-md border-[3px] border-black bg-white px-4 text-[15px] font-medium text-black outline-none transition-transform placeholder:font-normal placeholder:text-black/35",
+        // text-base (16px) prevents iOS Safari zoom-on-focus
+        "h-12 w-full rounded-md border-[3px] border-black bg-white px-4 text-base font-medium text-black outline-none transition-transform placeholder:font-normal placeholder:text-black/35",
         "shadow-[4px_4px_0_#000] focus:-translate-y-0.5 focus:shadow-[5px_5px_0_#000]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         props.className ?? "",
@@ -76,7 +77,7 @@ function ComicDropdown({
   return (
     <ul
       role="listbox"
-      className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-56 overflow-auto rounded-md border-[3px] border-black bg-white py-1 shadow-[4px_4px_0_#000]"
+      className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-40 overflow-auto rounded-md border-[3px] border-black bg-white py-1 shadow-[4px_4px_0_#000] sm:max-h-56"
     >
       {children}
     </ul>
@@ -113,24 +114,26 @@ function TagInput({
     <div>
       <FieldLabel hint={hint}>{label}</FieldLabel>
       <div className="flex gap-2">
-        <ComicInput
-          value={draft}
-          placeholder={placeholder}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addTag();
-            }
-          }}
-        />
+        <div className="relative min-w-0 flex-1">
+          <ComicInput
+            value={draft}
+            placeholder={placeholder}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag();
+              }
+            }}
+          />
+        </div>
         <button
           type="button"
           onClick={addTag}
-          className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-md border-[3px] border-black bg-[#a8e6ff] px-4 text-sm font-black shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5"
+          className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-md border-[3px] border-black bg-[#a8e6ff] px-3 text-sm font-black shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 sm:px-4"
         >
           <Plus className="size-4" />
-          Add
+          <span className="hidden sm:inline">Add</span>
         </button>
       </div>
       {values.length > 0 && (
@@ -138,7 +141,7 @@ function TagInput({
           {values.map((value) => (
             <span
               key={value}
-              className="inline-flex items-center gap-1.5 rounded-md border-[2.5px] border-black bg-white py-1.5 pl-3 pr-1.5 text-sm font-bold shadow-[2px_2px_0_#000]"
+              className="inline-flex max-w-full items-center gap-1.5 break-words rounded-md border-[2.5px] border-black bg-white py-1.5 pl-3 pr-1.5 text-sm font-bold shadow-[2px_2px_0_#000]"
             >
               {value}
               <button
@@ -307,10 +310,10 @@ function LocationTagInput({
         <button
           type="button"
           onClick={() => addLocation(draft)}
-          className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-md border-[3px] border-black bg-[#a8e6ff] px-4 text-sm font-black shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5"
+          className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-md border-[3px] border-black bg-[#a8e6ff] px-3 text-sm font-black shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 sm:px-4"
         >
           <Plus className="size-4" />
-          Add
+          <span className="hidden sm:inline">Add</span>
         </button>
       </div>
       {values.length > 0 && (
@@ -622,14 +625,14 @@ export function ProfileForm({ initial, mode }: ProfileFormProps) {
             }))
           }
           className={[
-            "relative h-8 w-14 shrink-0 rounded-md border-[3px] border-black transition-colors",
+            "relative h-9 w-16 shrink-0 rounded-md border-[3px] border-black transition-colors",
             form.emailDigestEnabled ? "bg-[#ffe566]" : "bg-white",
           ].join(" ")}
         >
           <span
             className={[
               "absolute top-0.5 size-5 rounded-sm border-2 border-black bg-black transition-all",
-              form.emailDigestEnabled ? "left-7" : "left-0.5",
+              form.emailDigestEnabled ? "left-8" : "left-0.5",
             ].join(" ")}
           />
         </button>

@@ -40,10 +40,10 @@ function formatShortDate(iso?: string | null) {
 }
 
 const TILTS = [
-  "-rotate-[0.6deg]",
-  "rotate-[0.55deg]",
-  "-rotate-[0.35deg]",
-  "rotate-[0.4deg]",
+  "sm:-rotate-[0.6deg]",
+  "sm:rotate-[0.55deg]",
+  "sm:-rotate-[0.35deg]",
+  "sm:rotate-[0.4deg]",
 ];
 
 function carouselPages(
@@ -51,7 +51,8 @@ function carouselPages(
   total: number,
   siblings = 1
 ): Array<number | "…"> {
-  if (total <= 7) {
+  // Fewer siblings on very small screens via caller; keep compact default.
+  if (total <= 5) {
     return Array.from({ length: total }, (_, i) => i);
   }
 
@@ -136,6 +137,20 @@ function EnhancedResumeModal({
   enhancing: boolean;
   onRegenerate: () => void;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const safeName = `${job.company}-${job.title}`
@@ -153,109 +168,113 @@ function EnhancedResumeModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Enhanced ATS resume"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border-[3px] border-black bg-[#fffef8] p-5 shadow-[8px_8px_0_#000] sm:p-6"
+        className="flex max-h-[calc(100dvh-0.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border-[3px] border-black bg-[#fffef8] shadow-[8px_8px_0_#000] sm:max-h-[min(90dvh,52rem)] sm:rounded-lg pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
+        <div className="sticky top-0 z-10 flex shrink-0 items-start justify-between gap-3 border-b-[2.5px] border-black bg-[#fffef8] p-4 sm:p-5">
+          <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-black/50">
               ATS Enhanced Resume
             </p>
-            <h3 className="text-xl font-black leading-tight sm:text-2xl">
+            <h3 className="break-words text-lg font-black leading-tight sm:text-2xl">
               {job.title} · {job.company}
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-9 items-center justify-center rounded-md border-2 border-black bg-white shadow-[2px_2px_0_#000]"
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border-2 border-black bg-white shadow-[2px_2px_0_#000] sm:size-9"
             aria-label="Close"
           >
             <X className="size-4" />
           </button>
         </div>
 
-        <p className="mb-2 text-sm font-medium text-black/70">
-          Ready to upload after you compile the .tex in Overleaf. Everything
-          below comes from your resume — we only rephrased and emphasized what
-          already matches this JD.
-        </p>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+          <p className="mb-2 text-sm font-medium text-black/70">
+            Ready to upload after you compile the .tex in Overleaf. Everything
+            below comes from your resume — we only rephrased and emphasized what
+            already matches this JD.
+          </p>
 
-        <p className="mb-3 inline-flex items-center gap-1.5 rounded-sm border-2 border-black bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-          <Save className="size-3" />
-          {generatedOn
-            ? `Saved ${generatedOn} · reused until you upload a new resume`
-            : "Saved to this job"}
-        </p>
+          <p className="mb-3 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-sm border-2 border-black bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+            <Save className="size-3 shrink-0" />
+            {generatedOn
+              ? `Saved ${generatedOn} · reused until you upload a new resume`
+              : "Saved to this job"}
+          </p>
 
-        {shownAdditions.length > 0 ? (
-          <div className="mb-4 rounded-md border-[2.5px] border-black bg-[#e8fff0] p-3">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em]">
-              What we added for this match
-            </p>
-            <p className="mb-2 text-xs font-medium text-black/55">
-              These are the JD-aligned updates on your enhanced resume — check
-              them before you upload.
-            </p>
-            <ul className="space-y-1.5 text-sm font-medium">
-              {shownAdditions.map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="shrink-0 font-black text-black">+</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+          {shownAdditions.length > 0 ? (
+            <div className="mb-4 rounded-md border-[2.5px] border-black bg-[#e8fff0] p-3">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em]">
+                What we added for this match
+              </p>
+              <p className="mb-2 text-xs font-medium text-black/55">
+                These are the JD-aligned updates on your enhanced resume — check
+                them before you upload.
+              </p>
+              <ul className="space-y-1.5 text-sm font-medium">
+                {shownAdditions.map((item) => (
+                  <li key={item} className="flex gap-2 break-anywhere">
+                    <span className="shrink-0 font-black text-black">+</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {stillMissing.length > 0 ? (
+            <div className="mb-4 rounded-md border-[2.5px] border-black bg-[#fff4e0] p-3">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em]">
+                Still missing (not invented)
+              </p>
+              <p className="mb-2 text-xs font-medium text-black/55">
+                The JD asks for these, but they weren’t on your resume — we left
+                them out on purpose.
+              </p>
+              <ul className="space-y-1.5 text-sm font-medium">
+                {stillMissing.map((item) => (
+                  <li key={item} className="flex gap-2 break-anywhere">
+                    <span className="shrink-0 font-black text-black">−</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {displayTips.length > 0 ? (
+            <div className="mb-4 rounded-md border-[2.5px] border-black bg-[#e8f4ff] p-3">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em]">
+                ATS tips
+              </p>
+              <ul className="space-y-1.5 text-sm font-medium">
+                {displayTips.map((t) => (
+                  <li key={t} className="break-anywhere">
+                    • {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-black/50">
+            Preview
+          </p>
+          <div className="mb-2 max-h-52 overflow-y-auto rounded-md border-[2.5px] border-black bg-white p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-anywhere sm:max-h-64">
+            {markdown || "No preview yet."}
           </div>
-        ) : null}
-
-        {stillMissing.length > 0 ? (
-          <div className="mb-4 rounded-md border-[2.5px] border-black bg-[#fff4e0] p-3">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em]">
-              Still missing (not invented)
-            </p>
-            <p className="mb-2 text-xs font-medium text-black/55">
-              The JD asks for these, but they weren’t on your resume — we left
-              them out on purpose.
-            </p>
-            <ul className="space-y-1.5 text-sm font-medium">
-              {stillMissing.map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="shrink-0 font-black text-black">−</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {displayTips.length > 0 ? (
-          <div className="mb-4 rounded-md border-[2.5px] border-black bg-[#e8f4ff] p-3">
-            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em]">
-              ATS tips
-            </p>
-            <ul className="space-y-1.5 text-sm font-medium">
-              {displayTips.map((t) => (
-                <li key={t}>• {t}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-black/50">
-          Preview
-        </p>
-        <div className="mb-4 max-h-64 overflow-y-auto rounded-md border-[2.5px] border-black bg-white p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-          {markdown || "No preview yet."}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="sticky bottom-0 z-10 grid shrink-0 grid-cols-1 gap-2 border-t-[2.5px] border-black bg-[#fffef8] p-4 sm:flex sm:flex-wrap sm:p-5">
           <button
             type="button"
             disabled={!tex || enhancing}
@@ -263,7 +282,7 @@ function EnhancedResumeModal({
               downloadTex(`${safeName}-ats-resume.tex`, tex);
               toast.success("Downloaded .tex — open it in Overleaf");
             }}
-            className="inline-flex h-10 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-black px-3.5 text-sm font-black text-white shadow-[2px_2px_0_#333] disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-black px-3.5 text-sm font-black text-white shadow-[2px_2px_0_#333] disabled:opacity-50 sm:h-10"
           >
             <Download className="size-3.5" />
             Download .tex
@@ -275,7 +294,7 @@ function EnhancedResumeModal({
               await navigator.clipboard.writeText(markdown);
               toast.success("Markdown copied");
             }}
-            className="inline-flex h-10 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50 sm:h-10"
           >
             <Copy className="size-3.5" />
             Copy Markdown
@@ -284,7 +303,7 @@ function EnhancedResumeModal({
             href="https://www.overleaf.com/project"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-10 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-[#a8e6ff] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000]"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-[#a8e6ff] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] sm:h-10"
           >
             <ExternalLink className="size-3.5" />
             Open Overleaf
@@ -293,7 +312,7 @@ function EnhancedResumeModal({
             type="button"
             disabled={enhancing}
             onClick={onRegenerate}
-            className="inline-flex h-10 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50 sm:h-10"
           >
             {enhancing ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -507,18 +526,18 @@ function JobCard({
 
   return (
     <article
-      className={`relative rounded-lg border-[3px] border-black bg-[#fffef8] p-5 shadow-[6px_6px_0_#000] transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0_#000] sm:p-6 ${tilt}`}
+      className={`relative rounded-lg border-[3px] border-black bg-[#fffef8] p-4 shadow-[5px_5px_0_#000] transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0_#000] sm:p-6 sm:shadow-[6px_6px_0_#000] ${tilt}`}
     >
       <div className="absolute -left-1.5 top-6 h-8 w-3 rounded-sm border-2 border-black bg-[#c4c4c4]" />
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 space-y-2">
-          <h2 className="text-2xl font-black tracking-tight sm:text-3xl">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1 space-y-2">
+          <h2 className="break-words text-xl font-black tracking-tight sm:text-3xl">
             {job.title}
           </h2>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-bold text-black/60">
-            <span className="text-black">{job.company}</span>
-            <span className="inline-flex items-center gap-1 font-medium text-black">
+            <span className="min-w-0 break-words text-black">{job.company}</span>
+            <span className="inline-flex min-w-0 items-center gap-1 break-words font-medium text-black">
               <MapPin className="size-3.5 shrink-0" />
               {job.location?.trim() || "Location n/a"}
             </span>
@@ -531,8 +550,8 @@ function JobCard({
         </div>
 
         <div className="relative shrink-0">
-          <div className="flex size-[4.5rem] rotate-6 flex-col items-center justify-center rounded-full border-[3px] border-black bg-[#ffe566] shadow-[3px_3px_0_#000]">
-            <span className="text-lg font-black leading-none">
+          <div className="flex size-14 rotate-6 flex-col items-center justify-center rounded-full border-[3px] border-black bg-[#ffe566] shadow-[3px_3px_0_#000] sm:size-[4.5rem]">
+            <span className="text-base font-black leading-none sm:text-lg">
               {job.matchScore}%
             </span>
             <span className="text-[8px] font-black uppercase tracking-wider">
@@ -546,10 +565,6 @@ function JobCard({
         <div className="inline-flex items-center gap-2 rounded-sm border-2 border-black bg-white px-2.5 py-1 text-sm font-bold">
           {salary}
         </div>
-        <span className="inline-flex items-center gap-1 rounded-sm border-2 border-black bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-          <MapPin className="size-3" />
-          {job.location?.trim() || "Location n/a"}
-        </span>
         <span className="rounded-sm border-2 border-black bg-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
           {job.status}
         </span>
@@ -577,7 +592,7 @@ function JobCard({
         ) : null}
       </div>
 
-      <div className="mt-4 rounded-md border-[2.5px] border-black bg-white p-3.5 text-[15px] font-medium leading-relaxed text-black/80">
+      <div className="mt-4 rounded-md border-[2.5px] border-black bg-white p-3 text-[15px] font-medium leading-relaxed break-anywhere text-black/80 sm:p-3.5">
         {job.description}
       </div>
 
@@ -587,14 +602,14 @@ function JobCard({
           aria-expanded={expanded}
           onClick={onToggle}
           className={[
-            "flex w-full items-center justify-between gap-3 rounded-md border-[3px] border-black bg-white px-4 py-3 text-left shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5",
+            "flex min-h-11 w-full items-center justify-between gap-3 rounded-md border-[3px] border-black bg-white px-3 py-3 text-left shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 sm:px-4",
             expanded ? "bg-[#ffe566]" : "",
           ].join(" ")}
         >
-          <span className="text-[11px] font-black uppercase tracking-[0.14em]">
+          <span className="text-[10px] font-black uppercase tracking-[0.12em] sm:text-[11px] sm:tracking-[0.14em]">
             {expanded
               ? "Hide details"
-              : "Pros / cons, referrals & resume match"}
+              : "Pros / cons, referrals & resume"}
           </span>
           <ChevronDown
             className={[
@@ -802,14 +817,16 @@ function JobCard({
                       href={c.profileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-md border-2 border-black bg-white px-2.5 py-1.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
+                      className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-md border-2 border-black bg-white px-2.5 py-1.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
                     >
-                      <span className="inline-flex size-6 items-center justify-center rounded-sm border-2 border-black bg-[#0a66c2] text-white">
+                      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm border-2 border-black bg-[#0a66c2] text-white">
                         <LinkedInMark className="size-3.5" />
                       </span>
                       <span className="min-w-0">
-                        <span className="block leading-tight">{c.name}</span>
-                        <span className="block text-[11px] font-medium text-black/55">
+                        <span className="block truncate leading-tight">
+                          {c.name}
+                        </span>
+                        <span className="block truncate text-[11px] font-medium text-black/55">
                           {c.title} · Current
                         </span>
                       </span>
@@ -830,12 +847,12 @@ function JobCard({
         )}
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2 border-t-[3px] border-black pt-4">
+      <div className="mt-5 grid grid-cols-2 gap-2 border-t-[3px] border-black pt-4 sm:flex sm:flex-wrap">
         <a
           href={job.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-10 items-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
+          className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 sm:h-10"
         >
           <ExternalLink className="size-3.5" />
           View
@@ -844,7 +861,7 @@ function JobCard({
           type="button"
           disabled={pendingId === job._id || job.status === "saved"}
           onClick={() => onUpdateStatus(job._id, "saved")}
-          className="inline-flex h-10 items-center rounded-md border-[2.5px] border-black bg-[#a8e6ff] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-md border-[2.5px] border-black bg-[#a8e6ff] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:h-10"
         >
           {job.status === "saved" ? "Saved ✓" : "Save"}
         </button>
@@ -852,7 +869,7 @@ function JobCard({
           type="button"
           disabled={pendingId === job._id || job.status === "applied"}
           onClick={() => onUpdateStatus(job._id, "applied")}
-          className="inline-flex h-10 items-center rounded-md border-[2.5px] border-black bg-black px-3.5 text-sm font-black text-white shadow-[2px_2px_0_#333] transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-md border-[2.5px] border-black bg-black px-3.5 text-sm font-black text-white shadow-[2px_2px_0_#333] transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:h-10"
         >
           {job.status === "applied" ? "Applied ✓" : "Applied!"}
         </button>
@@ -860,7 +877,7 @@ function JobCard({
           type="button"
           disabled={pendingId === job._id}
           onClick={() => onUpdateStatus(job._id, "dismissed")}
-          className="inline-flex h-10 items-center rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold text-black/50 shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 hover:text-black disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold text-black/50 shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 hover:text-black disabled:opacity-50 sm:h-10"
         >
           Pass
         </button>
@@ -958,7 +975,7 @@ export function JobsCarousel({
   }
 
   const current = items[carouselIndex];
-  const pages = carouselPages(carouselIndex, items.length);
+  const pages = carouselPages(carouselIndex, items.length, 0);
 
   return (
     <div className="space-y-4">
@@ -979,9 +996,10 @@ export function JobsCarousel({
             <button
               key={item}
               type="button"
+              aria-current={active ? "page" : undefined}
               onClick={() => setCarouselIndex(item)}
               className={[
-                "inline-flex min-w-10 items-center justify-center rounded-md border-[2.5px] border-black px-2.5 py-1.5 text-sm font-black shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5",
+                "inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border-[2.5px] border-black px-2.5 py-1.5 text-sm font-black shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 sm:min-h-0 sm:min-w-10",
                 active ? "bg-[#ffe566]" : "bg-white",
               ].join(" ")}
             >
@@ -991,7 +1009,8 @@ export function JobsCarousel({
         })}
       </div>
 
-      <div className="flex items-center justify-center gap-2 sm:gap-4">
+      {/* Mobile: full-width card; desktop: side arrows */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4">
         <button
           type="button"
           aria-label="Previous job"
@@ -999,12 +1018,12 @@ export function JobsCarousel({
           onClick={() =>
             setCarouselIndex((i) => (i - 1 + items.length) % items.length)
           }
-          className="inline-flex size-12 shrink-0 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 sm:size-14"
+          className="hidden size-14 shrink-0 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 sm:inline-flex"
         >
           <ChevronLeft className="size-6" />
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 w-full flex-1">
           <JobCard
             key={current._id}
             job={current}
@@ -1039,10 +1058,35 @@ export function JobsCarousel({
           aria-label="Next job"
           disabled={items.length <= 1}
           onClick={() => setCarouselIndex((i) => (i + 1) % items.length)}
-          className="inline-flex size-12 shrink-0 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 sm:size-14"
+          className="hidden size-14 shrink-0 items-center justify-center rounded-md border-[3px] border-black bg-white shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 sm:inline-flex"
         >
           <ChevronRight className="size-6" />
         </button>
+
+        <div className="flex items-center justify-center gap-2 sm:hidden">
+          <button
+            type="button"
+            aria-label="Previous job"
+            disabled={items.length <= 1}
+            onClick={() =>
+              setCarouselIndex((i) => (i - 1 + items.length) % items.length)
+            }
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1 rounded-md border-[3px] border-black bg-white text-sm font-black shadow-[3px_3px_0_#000] disabled:opacity-40"
+          >
+            <ChevronLeft className="size-5" />
+            Prev
+          </button>
+          <button
+            type="button"
+            aria-label="Next job"
+            disabled={items.length <= 1}
+            onClick={() => setCarouselIndex((i) => (i + 1) % items.length)}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1 rounded-md border-[3px] border-black bg-white text-sm font-black shadow-[3px_3px_0_#000] disabled:opacity-40"
+          >
+            Next
+            <ChevronRight className="size-5" />
+          </button>
+        </div>
       </div>
 
       <p className="text-center text-[11px] font-black uppercase tracking-[0.16em] text-black/45">
