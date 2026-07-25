@@ -15,9 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Job Finder Agent",
+  title: "Y.A.W.N",
   description:
-    "AI-powered job discovery with daily digests, match scores, and referral contacts — all in INR.",
+    "Yearning Applications While Napping — AI job discovery with daily digests, match scores, and referral contacts.",
+  applicationName: "Y.A.W.N",
 };
 
 export default function RootLayout({

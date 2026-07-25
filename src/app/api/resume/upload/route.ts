@@ -11,6 +11,7 @@ import {
   extractResumeTextFromBuffer,
 } from "@/lib/resume/extract-text";
 import { resumeFingerprint } from "@/lib/resume/fingerprint";
+import { getBlobReadWriteToken } from "@/lib/blob";
 
 export const runtime = "nodejs";
 
@@ -26,9 +27,13 @@ export async function POST(req: Request) {
   if ("error" in authResult) return authResult.error;
   const { user } = authResult;
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  const blobToken = getBlobReadWriteToken();
+  if (!blobToken) {
     return NextResponse.json(
-      { error: "BLOB_READ_WRITE_TOKEN is not configured" },
+      {
+        error:
+          "Blob token is not configured (set BLOB_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN)",
+      },
       { status: 500 }
     );
   }
@@ -68,7 +73,7 @@ export async function POST(req: Request) {
   const blob = await put(`resumes/${user._id}-${Date.now()}-${file.name}`, buffer, {
     access: "public",
     contentType: file.type || "application/octet-stream",
-    token: process.env.BLOB_READ_WRITE_TOKEN,
+    token: blobToken,
   });
 
   let skills: string[] = [];
