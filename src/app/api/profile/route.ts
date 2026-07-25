@@ -54,8 +54,29 @@ export async function PATCH(req: Request) {
     workMode: user.profile?.workMode ?? undefined,
   };
 
+  // Resume-derived data is expensive to rebuild, so carry it across the
+  // subdocument replacement below.
+  const resumeCache = {
+    resumeText: user.profile?.resumeText ?? undefined,
+    resumeFingerprint: user.profile?.resumeFingerprint ?? undefined,
+    resumeExperienceMonths: user.profile?.resumeExperienceMonths ?? undefined,
+    resumeExperienceYears: user.profile?.resumeExperienceYears ?? undefined,
+    resumeInternshipMonths: user.profile?.resumeInternshipMonths ?? undefined,
+    resumeExperienceRoles: (user.profile?.resumeExperienceRoles ?? []).map(
+      (role) => ({
+        company: role.company,
+        title: role.title,
+        dates: role.dates,
+        months: role.months,
+        employmentType: role.employmentType,
+      })
+    ),
+    resumeExperienceAt: user.profile?.resumeExperienceAt ?? undefined,
+  };
+
   user.set("profile", {
     ...existing,
+    ...resumeCache,
     salaryExpectationMin: data.salaryExpectationMin,
     salaryExpectationMax: data.salaryExpectationMax,
     workMode: data.workMode,

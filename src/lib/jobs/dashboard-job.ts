@@ -1,4 +1,5 @@
 import type { JobStatus, WorkMode } from "@/models";
+import { resolveEmployerCompany, isStaffingAgencyName } from "@/lib/jobs/resolve-employer";
 
 export type DashboardJob = {
   _id: string;
@@ -25,6 +26,19 @@ export type DashboardJob = {
   foundAt: string;
   savedAt?: string | null;
   appliedAt?: string | null;
+  resumeMatchScore?: number | null;
+  resumeMatchGaps?: string[];
+  resumeMatchExperienceYears?: number | null;
+  resumeMatchRequiredYears?: number | null;
+  requiredExperienceYears?: number | null;
+  resumeMatchExperienceVerdict?: string | null;
+  resumeMatchAt?: string | null;
+  enhancedResumeTex?: string | null;
+  enhancedResumeMarkdown?: string | null;
+  enhancedResumeAtsTips?: string[];
+  enhancedResumeAdditions?: string[];
+  enhancedResumeStillMissing?: string[];
+  enhancedResumeAt?: string | null;
 };
 
 export function mapDashboardJob(job: {
@@ -52,11 +66,34 @@ export function mapDashboardJob(job: {
   foundAt?: Date | string | null;
   savedAt?: Date | string | null;
   appliedAt?: Date | string | null;
+  resumeMatchScore?: number | null;
+  resumeMatchGaps?: string[] | null;
+  resumeMatchExperienceYears?: number | null;
+  resumeMatchRequiredYears?: number | null;
+  requiredExperienceYears?: number | null;
+  resumeMatchExperienceVerdict?: string | null;
+  resumeMatchAt?: Date | string | null;
+  enhancedResumeTex?: string | null;
+  enhancedResumeMarkdown?: string | null;
+  enhancedResumeAtsTips?: string[] | null;
+  enhancedResumeAdditions?: string[] | null;
+  enhancedResumeStillMissing?: string[] | null;
+  enhancedResumeAt?: Date | string | null;
 }): DashboardJob {
+  // Repair already-saved agency posters using description heuristics.
+  const company =
+    isStaffingAgencyName(job.company) || job.company === "Unknown"
+      ? resolveEmployerCompany({
+          postedAs: job.company,
+          title: job.title,
+          description: job.description ?? "",
+        })
+      : job.company;
+
   return {
     _id: job._id.toString(),
     title: job.title,
-    company: job.company,
+    company,
     description: job.description ?? "",
     sourceUrl: job.sourceUrl,
     location: job.location ?? undefined,
@@ -78,6 +115,33 @@ export function mapDashboardJob(job: {
     foundAt: (job.foundAt ? new Date(job.foundAt) : new Date()).toISOString(),
     savedAt: job.savedAt ? new Date(job.savedAt).toISOString() : null,
     appliedAt: job.appliedAt ? new Date(job.appliedAt).toISOString() : null,
+    resumeMatchScore:
+      typeof job.resumeMatchScore === "number" ? job.resumeMatchScore : null,
+    resumeMatchGaps: job.resumeMatchGaps ?? [],
+    resumeMatchExperienceYears:
+      typeof job.resumeMatchExperienceYears === "number"
+        ? job.resumeMatchExperienceYears
+        : null,
+    resumeMatchRequiredYears:
+      typeof job.resumeMatchRequiredYears === "number"
+        ? job.resumeMatchRequiredYears
+        : null,
+    requiredExperienceYears:
+      typeof job.requiredExperienceYears === "number"
+        ? job.requiredExperienceYears
+        : null,
+    resumeMatchExperienceVerdict: job.resumeMatchExperienceVerdict ?? null,
+    resumeMatchAt: job.resumeMatchAt
+      ? new Date(job.resumeMatchAt).toISOString()
+      : null,
+    enhancedResumeTex: job.enhancedResumeTex ?? null,
+    enhancedResumeMarkdown: job.enhancedResumeMarkdown ?? null,
+    enhancedResumeAtsTips: job.enhancedResumeAtsTips ?? [],
+    enhancedResumeAdditions: job.enhancedResumeAdditions ?? [],
+    enhancedResumeStillMissing: job.enhancedResumeStillMissing ?? [],
+    enhancedResumeAt: job.enhancedResumeAt
+      ? new Date(job.enhancedResumeAt).toISOString()
+      : null,
   };
 }
 

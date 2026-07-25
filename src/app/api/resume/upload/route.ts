@@ -1,8 +1,16 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
-import mammoth from "mammoth";
 import { requireUser } from "@/lib/auth-helpers";
 import { extractResumeSkills } from "@/lib/agent/extract-resume-skills";
+import {
+  extractResumeExperience,
+  type ResumeExperience,
+} from "@/lib/agent/extract-resume-experience";
+import {
+  capResumeText,
+  extractResumeTextFromBuffer,
+} from "@/lib/resume/extract-text";
+import { resumeFingerprint } from "@/lib/resume/fingerprint";
 
 export const runtime = "nodejs";
 
@@ -12,31 +20,6 @@ const ALLOWED = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/msword",
 ]);
-
-async function extractText(file: File, buffer: Buffer): Promise<string> {
-  const name = file.name.toLowerCase();
-  if (file.type === "application/pdf" || name.endsWith(".pdf")) {
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: buffer });
-    try {
-      const parsed = await parser.getText();
-      return parsed.text ?? "";
-    } finally {
-      await parser.destroy();
-    }
-  }
-
-  if (
-    file.type.includes("word") ||
-    name.endsWith(".docx") ||
-    name.endsWith(".doc")
-  ) {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value ?? "";
-  }
-
-  throw new Error("Unsupported file type. Upload PDF or DOCX.");
-}
 
 export async function POST(req: Request) {
   const authResult = await requireUser();
@@ -69,7 +52,12 @@ export async function POST(req: Request) {
   const buffer = Buffer.from(await file.arrayBuffer());
   let text = "";
   try {
-    text = await extractText(file, buffer);
+    text = capResumeText(
+      await extractResumeTextFromBuffer(buffer, {
+        fileName: file.name,
+        mimeType: file.type,
+      })
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to parse resume" },
@@ -84,27 +72,53 @@ export async function POST(req: Request) {
   });
 
   let skills: string[] = [];
+  let experience: ResumeExperience | null = null;
   if (text.trim().length > 40) {
-    try {
-      skills = await extractResumeSkills(text);
-    } catch (err) {
-      console.warn("[resume] skill extraction failed", err);
-    }
+    const [skillsResult, experienceResult] = await Promise.allSettled([
+      extractResumeSkills(text),
+      extractResumeExperience(text),
+    ]);
+
+    if (skillsResult.status === "fulfilled") skills = skillsResult.value;
+    else console.warn("[resume] skill extraction failed", skillsResult.reason);
+
+    if (experienceResult.status === "fulfilled")
+      experience = experienceResult.value;
+    else
+      console.warn(
+        "[resume] experience extraction failed",
+        experienceResult.reason
+      );
   }
 
-  user.profile = {
-    ...user.profile,
-    resumeUrl: blob.url,
-    resumeParsedSkills: skills,
-    preferredLocations: user.profile?.preferredLocations ?? [],
-    rolesOfInterest: user.profile?.rolesOfInterest ?? [],
-    emailDigestEnabled: user.profile?.emailDigestEnabled ?? true,
-    updatedAt: new Date(),
-  };
+  user.set("profile.resumeUrl", blob.url);
+  user.set("profile.resumeText", text || undefined);
+  user.set(
+    "profile.resumeFingerprint",
+    text ? resumeFingerprint(text) : undefined
+  );
+  user.set("profile.resumeParsedSkills", skills);
+  user.set("profile.preferredLocations", user.profile?.preferredLocations ?? []);
+  user.set("profile.rolesOfInterest", user.profile?.rolesOfInterest ?? []);
+  user.set(
+    "profile.emailDigestEnabled",
+    user.profile?.emailDigestEnabled ?? true
+  );
+
+  if (experience) {
+    user.set("profile.resumeExperienceMonths", experience.fullTimeMonths);
+    user.set("profile.resumeExperienceYears", experience.fullTimeYears);
+    user.set("profile.resumeInternshipMonths", experience.internshipMonths);
+    user.set("profile.resumeExperienceRoles", experience.roles);
+    user.set("profile.resumeExperienceAt", new Date());
+  }
+
+  user.set("profile.updatedAt", new Date());
   await user.save();
 
   return NextResponse.json({
     resumeUrl: blob.url,
     resumeParsedSkills: skills,
+    resumeExperienceYears: experience?.fullTimeYears ?? null,
   });
 }

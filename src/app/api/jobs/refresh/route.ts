@@ -1,6 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireUser } from "@/lib/auth-helpers";
-import { runJobSearchAgent } from "@/lib/agent/run-job-search-agent";
+import {
+  fillReferralsForJobs,
+  runJobSearchAgent,
+} from "@/lib/agent/run-job-search-agent";
 import {
   assertRefreshAllowed,
   markRefresh,
@@ -30,7 +33,28 @@ export async function POST() {
   try {
     await markRefresh(user._id);
     const summary = await runJobSearchAgent(user._id.toString());
-    return NextResponse.json({ ok: true, summary });
+
+    // Referral grounding is slow — fill it in after we return jobs to the UI
+    const referralJobIds = summary.referralJobIds;
+    if (referralJobIds.length > 0) {
+      after(async () => {
+        try {
+          await fillReferralsForJobs(referralJobIds);
+        } catch (err) {
+          console.warn("[agent] background referrals failed", err);
+        }
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      summary: {
+        fetched: summary.fetched,
+        saved: summary.saved,
+        skippedDuplicates: summary.skippedDuplicates,
+        enriched: summary.enriched,
+      },
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Agent failed" },

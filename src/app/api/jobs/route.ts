@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth-helpers";
 import JobListing, { JOB_STATUSES } from "@/models/JobListing";
 import { WORK_MODES } from "@/models/User";
+import { mapDashboardJob } from "@/lib/jobs/dashboard-job";
+import { filterJobsByExperience } from "@/lib/jobs/experience-filter";
+import {
+  isStaffingAgencyName,
+  resolveEmployerCompany,
+} from "@/lib/jobs/resolve-employer";
 
 export async function GET(req: Request) {
   const result = await requireUser();
@@ -33,18 +39,42 @@ export async function GET(req: Request) {
     query.salaryEstimateMax = salaryFilter;
   }
 
-  const jobs = await JobListing.find(query).sort({ matchScore: -1, foundAt: -1 }).lean();
+  const jobs = await JobListing.find(query)
+    .sort({ matchScore: -1, foundAt: -1 })
+    .lean();
+
+  // Persist employer fixes for agency-posted rows so referrals use the real company.
+  const repairs = jobs.flatMap((job) => {
+    if (!isStaffingAgencyName(job.company) && job.company !== "Unknown") {
+      return [];
+    }
+    const fixed = resolveEmployerCompany({
+      postedAs: job.company,
+      title: job.title,
+      description: job.description ?? "",
+    });
+    if (!fixed || fixed === job.company) return [];
+    return [
+      JobListing.updateOne(
+        { _id: job._id },
+        { $set: { company: fixed } }
+      ).then(() => {
+        job.company = fixed;
+      }),
+    ];
+  });
+  if (repairs.length > 0) {
+    await Promise.allSettled(repairs);
+  }
+
+  const mapped = jobs.map(mapDashboardJob);
+  const candidateYears =
+    typeof user.profile?.resumeExperienceYears === "number"
+      ? user.profile.resumeExperienceYears
+      : null;
 
   return NextResponse.json({
-    jobs: jobs.map((job) => ({
-      ...job,
-      _id: job._id.toString(),
-      userId: job.userId.toString(),
-      foundAt: job.foundAt
-        ? new Date(job.foundAt).toISOString()
-        : new Date().toISOString(),
-      savedAt: job.savedAt ? new Date(job.savedAt).toISOString() : null,
-      appliedAt: job.appliedAt ? new Date(job.appliedAt).toISOString() : null,
-    })),
+    jobs: filterJobsByExperience(mapped, candidateYears, 2),
+    resumeExperienceYears: candidateYears,
   });
 }

@@ -21,6 +21,8 @@ export type UserProfileContext = {
   preferredLocations: string[];
   rolesOfInterest: string[];
   resumeParsedSkills: string[];
+  /** Full-time years from the resume; used to filter jobs within ±2 years. */
+  resumeExperienceYears?: number;
 };
 
 export async function searchJobsViaGrounding(
@@ -47,7 +49,7 @@ Use web search to find real, current listings from company career pages or job b
 Return JSON: {
   "jobs": [{
     "title": string,
-    "company": string,
+    "company": string (the ACTUAL employer the candidate would work for — never a staffing agency, hiring platform, or job board like "Agile Hiring"),
     "description": string,
     "sourceUrl": string (must be a real URL),
     "location": string,
@@ -56,7 +58,8 @@ Return JSON: {
     "salaryEstimateMax": number | null (INR annual)
   }]
 }
-Return at most 8 high-quality matches. Prefer India-based roles. Skip stale or generic aggregator spam.`,
+Return at most 8 high-quality matches. Prefer India-based roles. Skip stale or generic aggregator spam.
+If a post is from a recruiter hiring for a client, set company to the client name.`,
   });
 
   return (result.jobs ?? [])

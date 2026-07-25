@@ -3,7 +3,10 @@ import { connectDB } from "@/lib/db/mongodb";
 import User from "@/models/User";
 import JobListing from "@/models/JobListing";
 import DigestLog from "@/models/DigestLog";
-import { runJobSearchAgent } from "@/lib/agent/run-job-search-agent";
+import {
+  fillReferralsForJobs,
+  runJobSearchAgent,
+} from "@/lib/agent/run-job-search-agent";
 import { sendDailyDigest } from "@/lib/email/send-digest";
 import { isProfileComplete } from "@/lib/profile";
 
@@ -41,7 +44,8 @@ async function runDigest() {
     }
 
     try {
-      await runJobSearchAgent(user._id.toString());
+      const summary = await runJobSearchAgent(user._id.toString());
+      await fillReferralsForJobs(summary.referralJobIds);
 
       const jobs = await JobListing.find({
         userId: user._id,

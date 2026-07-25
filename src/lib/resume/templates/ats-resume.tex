@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+
+% ATS-friendly: single column, no tables/graphics/icons/multicol
+\usepackage[margin=0.6in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{setspace}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=2pt, parsep=0pt}
+\hypersetup{colorlinks=false, pdfborder={0 0 0}}
+
+\titleformat{\section}{\large\bfseries\uppercase}{\thesection}{0em}{}[\titlerule]
+\titlespacing*{\section}{0pt}{10pt}{4pt}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries %%NAME%%}\\[4pt]
+%%CONTACT%%
+\end{center}
+
+\section*{Summary}
+%%SUMMARY%%
+
+\section*{Skills}
+%%SKILLS%%
+
+\section*{Experience}
+%%EXPERIENCE%%
+
+\section*{Education}
+%%EDUCATION%%
+
+\section*{Projects}
+%%PROJECTS%%
+
+\end{document}

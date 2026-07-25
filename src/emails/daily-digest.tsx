@@ -91,8 +91,8 @@ export function DailyDigestEmail({
                     <strong>Cons:</strong> {job.cons.join(" · ")}
                   </Text>
                 )}
-                {job.referralContacts.slice(0, 2).map((c) => (
-                  <Text key={c.profileUrl} style={text}>
+                {job.referralContacts.slice(0, 2).map((c, i) => (
+                  <Text key={`${c.profileUrl}-${c.name}-${i}`} style={text}>
                     Referral:{" "}
                     <Link href={c.profileUrl}>
                       {c.name} — {c.title}

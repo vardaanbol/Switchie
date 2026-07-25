@@ -3,14 +3,14 @@ import User from "@/models/User";
 import JobListing from "@/models/JobListing";
 import { searchAdzunaJobs } from "@/lib/agent/adzuna";
 import { searchJobsViaGrounding } from "@/lib/agent/search-jobs-via-grounding";
-import { enrichListing } from "@/lib/agent/enrich-listing";
+import { enrichListing, withinExperienceWindow } from "@/lib/agent/enrich-listing";
 import { findReferralContacts } from "@/lib/agent/find-referral-contacts";
 import { dedupeByTitleCompanyLocation } from "@/lib/agent/dedupe";
 import type { UserProfileContext } from "@/lib/agent/search-jobs-via-grounding";
 
-const REFERRAL_TOP_N = 5;
-const MAX_ENRICH = 12;
-const CONCURRENCY = 4;
+/** Fewer enrich calls = biggest wall-clock win (each is a Gemini round-trip). */
+const MAX_ENRICH = 8;
+const CONCURRENCY = 6;
 
 /** Run tasks with a concurrency cap to stay under Gemini rate limits. */
 async function mapWithConcurrency<T, R>(
@@ -43,6 +43,8 @@ export type AgentRunResult = {
   saved: number;
   skippedDuplicates: number;
   enriched: number;
+  /** IDs of newly saved top matches — used to fill referrals in the background. */
+  referralJobIds: string[];
 };
 
 export async function runJobSearchAgent(userId: string): Promise<AgentRunResult> {
@@ -60,6 +62,10 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
     preferredLocations: user.profile?.preferredLocations ?? [],
     rolesOfInterest: user.profile?.rolesOfInterest ?? [],
     resumeParsedSkills: user.profile?.resumeParsedSkills ?? [],
+    resumeExperienceYears:
+      typeof user.profile?.resumeExperienceYears === "number"
+        ? user.profile.resumeExperienceYears
+        : undefined,
   };
 
   if (profile.rolesOfInterest.length === 0) {
@@ -77,7 +83,6 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
   const merged = dedupeByTitleCompanyLocation([...adzuna, ...grounded]);
   const toEnrich = merged.slice(0, MAX_ENRICH);
 
-  let saved = 0;
   let skippedDuplicates = 0;
   let enriched = 0;
 
@@ -106,52 +111,81 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
     console.warn("[agent] enrich failed", candidates[i].title, r.reason);
     return [];
   });
-  enriched = enrichedListings.length;
 
-  enrichedListings.sort((a, b) => b.matchScore - a.matchScore);
-
-  // Referral lookups only for the top N by match score, in parallel
-  const referralTargets = enrichedListings.slice(0, REFERRAL_TOP_N);
-  const referralResults = await mapWithConcurrency(
-    referralTargets,
-    CONCURRENCY,
-    (item) => findReferralContacts({ company: item.company, roleTitle: item.title })
+  // Drop roles whose experience band is more than ±2 years from the resume.
+  const experienceFiltered = enrichedListings.filter((item) =>
+    withinExperienceWindow(
+      item.requiredExperienceYears,
+      profile.resumeExperienceYears,
+      2
+    )
   );
+  const skippedExperience =
+    enrichedListings.length - experienceFiltered.length;
+  if (skippedExperience > 0) {
+    console.info(
+      `[agent] skipped ${skippedExperience} jobs outside ±2y experience window (candidate=${profile.resumeExperienceYears ?? "n/a"}y)`
+    );
+  }
+  enriched = experienceFiltered.length;
 
-  const referralsByIndex = referralResults.map((r, i) => {
-    if (r.status === "fulfilled") return r.value;
-    console.warn("[agent] referrals failed", referralTargets[i].company, r.reason);
-    return [];
-  });
+  experienceFiltered.sort((a, b) => b.matchScore - a.matchScore);
 
-  for (let i = 0; i < enrichedListings.length; i++) {
-    const item = enrichedListings[i];
-    const referralContacts = i < REFERRAL_TOP_N ? referralsByIndex[i] ?? [] : [];
+  // Save immediately without waiting on slow grounded referral lookups
+  const docs = experienceFiltered.map((item) => ({
+    userId: user._id,
+    title: item.title,
+    company: item.company,
+    description: item.description,
+    sourceUrl: item.sourceUrl,
+    location: item.location,
+    workMode: item.workMode,
+    salaryEstimateMin: item.salaryEstimateMin,
+    salaryEstimateMax: item.salaryEstimateMax,
+    salaryIsEstimate: item.salaryIsEstimate,
+    pros: item.pros,
+    cons: item.cons,
+    referralContacts: [],
+    matchScore: item.matchScore,
+    requiredExperienceYears: item.requiredExperienceYears ?? undefined,
+    foundAt: new Date(),
+    status: "new" as const,
+  }));
 
+  let saved = 0;
+  const referralJobIds: string[] = [];
+
+  if (docs.length > 0) {
     try {
-      await JobListing.create({
-        userId: user._id,
-        title: item.title,
-        company: item.company,
-        description: item.description,
-        sourceUrl: item.sourceUrl,
-        location: item.location,
-        workMode: item.workMode,
-        salaryEstimateMin: item.salaryEstimateMin,
-        salaryEstimateMax: item.salaryEstimateMax,
-        salaryIsEstimate: item.salaryIsEstimate,
-        pros: item.pros,
-        cons: item.cons,
-        referralContacts,
-        matchScore: item.matchScore,
-        foundAt: new Date(),
-        status: "new",
-      });
-      saved += 1;
-    } catch (err) {
-      // Unique index collision
-      skippedDuplicates += 1;
-      console.warn("[agent] save skipped", item.sourceUrl, err);
+      const inserted = await JobListing.insertMany(docs, { ordered: false });
+      saved = inserted.length;
+      for (const doc of inserted) {
+        referralJobIds.push(doc._id.toString());
+      }
+    } catch (err: unknown) {
+      // Partial success with duplicate-key errors (ordered: false)
+      const bulk = err as {
+        insertedDocs?: Array<{ _id: { toString(): string } }>;
+        writeErrors?: unknown[];
+      };
+      if (Array.isArray(bulk.insertedDocs) && bulk.insertedDocs.length > 0) {
+        saved = bulk.insertedDocs.length;
+        for (const doc of bulk.insertedDocs) {
+          referralJobIds.push(doc._id.toString());
+        }
+        skippedDuplicates += docs.length - saved;
+      } else {
+        // Fallback: insert one-by-one so one collision doesn't sink the batch
+        for (const doc of docs) {
+          try {
+            const created = await JobListing.create(doc);
+            saved += 1;
+            referralJobIds.push(created._id.toString());
+          } catch {
+            skippedDuplicates += 1;
+          }
+        }
+      }
     }
   }
 
@@ -160,5 +194,63 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
     saved,
     skippedDuplicates,
     enriched,
+    referralJobIds,
   };
+}
+
+/** Fill referral contacts for saved jobs (run after the HTTP response via `after`). */
+export async function fillReferralsForJobs(jobIds: string[]): Promise<void> {
+  if (jobIds.length === 0) return;
+
+  await connectDB();
+  const jobs = await JobListing.find({ _id: { $in: jobIds } })
+    .select("_id company title")
+    .lean();
+
+  if (jobs.length === 0) return;
+
+  // One grounded search per company — reuse across roles at the same org
+  const byCompany = new Map<string, typeof jobs>();
+  for (const job of jobs) {
+    const key = job.company.trim().toLowerCase();
+    const list = byCompany.get(key) ?? [];
+    list.push(job);
+    byCompany.set(key, list);
+  }
+
+  const companyEntries = [...byCompany.entries()];
+  const companyResults = await mapWithConcurrency(
+    companyEntries,
+    Math.min(CONCURRENCY, 4),
+    async ([, companyJobs]) => {
+      const representative = companyJobs[0];
+      const contacts = await findReferralContacts({
+        company: representative.company,
+        roleTitle: representative.title,
+      });
+      return { jobIds: companyJobs.map((j) => j._id.toString()), contacts };
+    }
+  );
+
+  await Promise.all(
+    companyResults.map(async (r, i) => {
+      if (r.status !== "fulfilled") {
+        console.warn(
+          "[agent] referrals failed",
+          companyEntries[i][1][0]?.company,
+          r.reason
+        );
+        return;
+      }
+      const { jobIds: ids, contacts } = r.value;
+      await Promise.all(
+        ids.map((id) =>
+          JobListing.updateOne(
+            { _id: id },
+            { $set: { referralContacts: contacts } }
+          )
+        )
+      );
+    })
+  );
 }

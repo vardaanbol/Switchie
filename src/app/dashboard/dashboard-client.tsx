@@ -20,6 +20,7 @@ import {
   dayKey,
   type DashboardJob,
 } from "@/lib/jobs/dashboard-job";
+import { filterJobsByExperience } from "@/lib/jobs/experience-filter";
 import { JobsCarousel } from "@/components/jobs/jobs-carousel";
 
 export type { DashboardJob };
@@ -185,10 +186,14 @@ export function DashboardClient({
   initialJobs,
   userName,
   initialView = "all",
+  hasResume = false,
+  resumeExperienceYears = null,
 }: {
   initialJobs: DashboardJob[];
   userName: string;
   initialView?: DashboardView;
+  hasResume?: boolean;
+  resumeExperienceYears?: number | null;
 }) {
   const now = new Date();
   const firstName = userName.split(" ")[0] || "there";
@@ -252,7 +257,15 @@ export function DashboardClient({
         );
         const listRes = await fetch("/api/jobs");
         const listData = await listRes.json();
-        if (listRes.ok) setJobs(listData.jobs);
+        if (listRes.ok) {
+          setJobs(
+            filterJobsByExperience(
+              listData.jobs as DashboardJob[],
+              resumeExperienceYears ?? listData.resumeExperienceYears ?? null,
+              2
+            )
+          );
+        }
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Refresh failed");
       }
@@ -408,7 +421,11 @@ export function DashboardClient({
             onMonthChange={setCalendarMonth}
           />
         ) : (
-          <JobsCarousel jobs={filtered} emptyMessage={emptyCopy[view]} />
+          <JobsCarousel
+            jobs={filtered}
+            emptyMessage={emptyCopy[view]}
+            hasResume={hasResume}
+          />
         )}
       </main>
 

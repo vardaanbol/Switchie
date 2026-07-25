@@ -1,7 +1,10 @@
 export { extractResumeSkills } from "./extract-resume-skills";
+export { extractResumeExperience } from "./extract-resume-experience";
 export { enrichListing } from "./enrich-listing";
 export { findReferralContacts } from "./find-referral-contacts";
 export { searchJobsViaGrounding } from "./search-jobs-via-grounding";
 export { searchAdzunaJobs } from "./adzuna";
-export { runJobSearchAgent } from "./run-job-search-agent";
+export { runJobSearchAgent, fillReferralsForJobs } from "./run-job-search-agent";
+export { scoreResumeMatch } from "./score-resume-match";
+export { enhanceResumeForJob } from "./enhance-resume";
 export { getGeminiCostLog } from "./cost-log";

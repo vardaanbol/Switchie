@@ -26,10 +26,12 @@ export function DayClient({
   date,
   initialJobs,
   userName,
+  hasResume = false,
 }: {
   date: string;
   initialJobs: DashboardJob[];
   userName: string;
+  hasResume?: boolean;
 }) {
   const firstName = userName.split(" ")[0] || "there";
   const label = formatDayLabel(date);
@@ -92,6 +94,7 @@ export function DayClient({
         <JobsCarousel
           jobs={initialJobs}
           emptyMessage={`No yawns on ${label}. Pick another day from the calendar.`}
+          hasResume={hasResume}
         />
       </main>
 
