@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth-helpers";
 import { profileSchema } from "@/lib/validators/profile";
+import { isProfileComplete } from "@/lib/profile";
 
 export async function GET() {
   const result = await requireUser();
@@ -42,19 +43,31 @@ export async function PATCH(req: Request) {
     user.name = data.name;
   }
 
-  user.profile = {
-    ...user.profile,
+  const existing = {
+    preferredLocations: user.profile?.preferredLocations ?? [],
+    rolesOfInterest: user.profile?.rolesOfInterest ?? [],
+    resumeParsedSkills: user.profile?.resumeParsedSkills ?? [],
+    emailDigestEnabled: user.profile?.emailDigestEnabled ?? true,
+    resumeUrl: user.profile?.resumeUrl ?? undefined,
+    salaryExpectationMin: user.profile?.salaryExpectationMin ?? undefined,
+    salaryExpectationMax: user.profile?.salaryExpectationMax ?? undefined,
+    workMode: user.profile?.workMode ?? undefined,
+  };
+
+  user.set("profile", {
+    ...existing,
     salaryExpectationMin: data.salaryExpectationMin,
     salaryExpectationMax: data.salaryExpectationMax,
     workMode: data.workMode,
     preferredLocations: data.preferredLocations,
     rolesOfInterest: data.rolesOfInterest,
     emailDigestEnabled:
-      data.emailDigestEnabled ?? user.profile?.emailDigestEnabled ?? true,
-    resumeUrl: user.profile?.resumeUrl,
-    resumeParsedSkills: user.profile?.resumeParsedSkills ?? [],
+      data.emailDigestEnabled ?? existing.emailDigestEnabled ?? true,
+    resumeUrl: existing.resumeUrl,
+    resumeParsedSkills: existing.resumeParsedSkills,
     updatedAt: new Date(),
-  };
+  });
+  user.markModified("profile");
 
   await user.save();
 
@@ -64,6 +77,7 @@ export async function PATCH(req: Request) {
     name: user.name,
     image: user.image,
     profile: user.profile,
+    profileComplete: isProfileComplete(user.profile),
   });
 }
 

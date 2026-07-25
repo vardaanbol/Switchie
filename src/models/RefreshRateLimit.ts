@@ -35,6 +35,11 @@ export default RefreshRateLimit;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 export async function assertRefreshAllowed(userId: mongoose.Types.ObjectId) {
+  // Skip rate limit in local/dev so you can test freely
+  if (process.env.NODE_ENV === "development") {
+    return { allowed: true as const };
+  }
+
   const existing = await RefreshRateLimit.findOne({ userId });
   if (existing) {
     const elapsed = Date.now() - existing.lastRefreshAt.getTime();

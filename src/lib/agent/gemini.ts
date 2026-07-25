@@ -1,7 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { logGeminiCost } from "@/lib/agent/cost-log";
 
-const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+const CURRENT_MODEL = "gemini-3.6-flash";
+const MODEL = process.env.GEMINI_MODEL ?? CURRENT_MODEL;
 
 let client: GoogleGenAI | null = null;
 
@@ -28,26 +29,45 @@ export async function generateJson<T>(opts: {
   const ai = getGeminiClient();
   const started = Date.now();
 
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: opts.prompt,
-    config: {
-      systemInstruction:
-        opts.system ??
-        "You are a careful assistant. Respond with valid JSON only. No markdown fences.",
-      temperature: 0.3,
-      ...(opts.useSearch
-        ? { tools: [{ googleSearch: {} }] }
-        : { responseMimeType: "application/json" }),
-    },
-  });
+  const generate = (model: string) =>
+    ai.models.generateContent({
+      model,
+      contents: opts.prompt,
+      config: {
+        systemInstruction:
+          opts.system ??
+          "You are a careful assistant. Respond with valid JSON only. No markdown fences.",
+        temperature: 0.3,
+        ...(opts.useSearch
+          ? { tools: [{ googleSearch: {} }] }
+          : { responseMimeType: "application/json" }),
+      },
+    });
+
+  let usedModel = MODEL;
+  let response;
+
+  try {
+    response = await generate(usedModel);
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status !== 404 || usedModel === CURRENT_MODEL) {
+      throw error;
+    }
+
+    console.warn(
+      `[gemini] Model ${usedModel} unavailable; retrying with ${CURRENT_MODEL}`
+    );
+    usedModel = CURRENT_MODEL;
+    response = await generate(usedModel);
+  }
 
   const text = response.text ?? "";
   const usage = response.usageMetadata;
 
   logGeminiCost({
     label: opts.label,
-    model: MODEL,
+    model: usedModel,
     promptTokens: usage?.promptTokenCount,
     candidatesTokens: usage?.candidatesTokenCount,
     totalTokens: usage?.totalTokenCount,

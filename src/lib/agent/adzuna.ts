@@ -55,7 +55,6 @@ export async function searchAdzunaJobs(
         app_key: appKey,
         results_per_page: "10",
         what: role,
-        content: "1",
       });
       if (location) params.set("where", location);
       if (profile.salaryExpectationMin) {
@@ -64,9 +63,15 @@ export async function searchAdzunaJobs(
 
       const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?${params}`;
       try {
-        const res = await fetch(url, { next: { revalidate: 0 } });
+        const res = await fetch(url, {
+          headers: { Accept: "application/json" },
+          next: { revalidate: 0 },
+        });
         if (!res.ok) {
-          console.warn(`[adzuna] ${res.status} for ${role} @ ${location || "any"}`);
+          const message = (await res.text()).slice(0, 300);
+          console.warn(
+            `[adzuna] ${res.status} for ${role} @ ${location || "any"}: ${message}`
+          );
           continue;
         }
         const data = (await res.json()) as AdzunaResult;

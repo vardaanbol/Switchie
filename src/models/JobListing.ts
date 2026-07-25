@@ -103,6 +103,12 @@ const JobListingSchema = new Schema(
       default: "new",
       index: true,
     },
+    savedAt: {
+      type: Date,
+    },
+    appliedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

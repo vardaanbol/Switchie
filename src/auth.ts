@@ -69,9 +69,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
 
-    async jwt({ token, account, trigger }) {
+    async jwt({ token, account, trigger, session }) {
       if (account?.providerAccountId) {
         token.googleId = account.providerAccountId;
+      }
+
+      // Client can pass profileComplete via session.update({ profileComplete })
+      if (trigger === "update" && session && typeof session === "object") {
+        const incoming = session as { profileComplete?: boolean };
+        if (typeof incoming.profileComplete === "boolean") {
+          token.profileComplete = incoming.profileComplete;
+        }
       }
 
       const shouldRefresh =
@@ -83,7 +91,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const dbUser = await User.findOne({ googleId: token.googleId }).lean();
         if (dbUser) {
           token.userId = dbUser._id.toString();
-          token.profileComplete = isProfileComplete(dbUser.profile);
+          // Prefer DB truth on refresh; fall back to any client-provided flag
+          token.profileComplete =
+            isProfileComplete(dbUser.profile) ||
+            Boolean(token.profileComplete);
         }
       }
 

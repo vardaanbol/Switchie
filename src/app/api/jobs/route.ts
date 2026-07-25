@@ -40,6 +40,11 @@ export async function GET(req: Request) {
       ...job,
       _id: job._id.toString(),
       userId: job.userId.toString(),
+      foundAt: job.foundAt
+        ? new Date(job.foundAt).toISOString()
+        : new Date().toISOString(),
+      savedAt: job.savedAt ? new Date(job.savedAt).toISOString() : null,
+      appliedAt: job.appliedAt ? new Date(job.appliedAt).toISOString() : null,
     })),
   });
 }

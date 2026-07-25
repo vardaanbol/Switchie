@@ -10,6 +10,33 @@ import type { UserProfileContext } from "@/lib/agent/search-jobs-via-grounding";
 
 const REFERRAL_TOP_N = 5;
 const MAX_ENRICH = 12;
+const CONCURRENCY = 4;
+
+/** Run tasks with a concurrency cap to stay under Gemini rate limits. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const index = next++;
+      try {
+        results[index] = { status: "fulfilled", value: await fn(items[index]) };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  );
+  return results;
+}
 
 export type AgentRunResult = {
   fetched: number;
@@ -70,32 +97,36 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
     return true;
   });
 
-  const enrichedListings = [];
-  for (const candidate of candidates) {
-    try {
-      const enrichedItem = await enrichListing(candidate, profile);
-      enrichedListings.push(enrichedItem);
-      enriched += 1;
-    } catch (err) {
-      console.warn("[agent] enrich failed", candidate.title, err);
-    }
-  }
+  const enrichResults = await mapWithConcurrency(candidates, CONCURRENCY, (c) =>
+    enrichListing(c, profile)
+  );
+
+  const enrichedListings = enrichResults.flatMap((r, i) => {
+    if (r.status === "fulfilled") return [r.value];
+    console.warn("[agent] enrich failed", candidates[i].title, r.reason);
+    return [];
+  });
+  enriched = enrichedListings.length;
 
   enrichedListings.sort((a, b) => b.matchScore - a.matchScore);
 
+  // Referral lookups only for the top N by match score, in parallel
+  const referralTargets = enrichedListings.slice(0, REFERRAL_TOP_N);
+  const referralResults = await mapWithConcurrency(
+    referralTargets,
+    CONCURRENCY,
+    (item) => findReferralContacts({ company: item.company, roleTitle: item.title })
+  );
+
+  const referralsByIndex = referralResults.map((r, i) => {
+    if (r.status === "fulfilled") return r.value;
+    console.warn("[agent] referrals failed", referralTargets[i].company, r.reason);
+    return [];
+  });
+
   for (let i = 0; i < enrichedListings.length; i++) {
     const item = enrichedListings[i];
-    let referralContacts: Awaited<ReturnType<typeof findReferralContacts>> = [];
-    if (i < REFERRAL_TOP_N) {
-      try {
-        referralContacts = await findReferralContacts({
-          company: item.company,
-          roleTitle: item.title,
-        });
-      } catch (err) {
-        console.warn("[agent] referrals failed", item.company, err);
-      }
-    }
+    const referralContacts = i < REFERRAL_TOP_N ? referralsByIndex[i] ?? [] : [];
 
     try {
       await JobListing.create({
