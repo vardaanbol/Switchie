@@ -1,8 +1,8 @@
 import {
   CalendarDays,
+  FileText,
   Mail,
   Search,
-  Sparkles,
   Target,
   Users,
 } from "lucide-react";
@@ -23,11 +23,11 @@ const FEATURES = [
     tilt: "sm:rotate-[0.6deg]",
   },
   {
-    icon: Sparkles,
-    title: "Pros, Cons & Salary",
-    body: "AI reads each role and hands you the honest highs, lows and pay estimate up front.",
-    accent: "bg-[#ffb4a2]",
-    tilt: "sm:rotate-[0.5deg]",
+    icon: FileText,
+    title: "ATS Resume Upgrade",
+    body: "Score your resume against a JD, then download a tailored ATS-ready PDF — no Overleaf required.",
+    accent: "bg-[#fff1a8]",
+    tilt: "sm:-rotate-[0.4deg]",
   },
   {
     icon: Users,

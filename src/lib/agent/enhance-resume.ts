@@ -143,7 +143,12 @@ Return JSON:
   "experience": [{ "company", "title", "dates", "bullets": string[3-5] }],
   "education": [{ "school", "degree", "dates", "details"? }],
   "projects": [{ "name", "dates"?, "bullets": string[] }] (only if on resume; else []),
-  "estimatedAtsScore": number 0-100 (honest estimate after rewrite vs this JD),
+  "estimatedAtsScore": number 0-100 (
+    Post-rewrite ATS fit for THIS JD. After a successful enhance, typical strong fits land 75–85.
+    Do not undershoot into the 60s when the rewrite emphasized real JD keywords from the resume.
+    Only go below 75 if the resume is a weak fit even after honest rephrasing (many stillMissing).
+    Never invent fit — but do credit keyword alignment, summary focus, and ATS-clean layout.
+  ),
   "additions": string[4-8] (
     Concrete "what we added / emphasized for this JD" items a user can verify on the new resume.
     Examples:
@@ -174,9 +179,9 @@ Keep experience/education/projects truthful. Prefer strong action verbs and meas
     sections,
     latex,
     markdown,
-    estimatedAtsScore: Math.max(
-      0,
-      Math.min(100, Math.round(result.estimatedAtsScore ?? 0))
+    estimatedAtsScore: normalizeEnhancedAtsScore(
+      result.estimatedAtsScore,
+      stillMissing.length
     ),
     additions:
       additions.length > 0
@@ -186,4 +191,23 @@ Keep experience/education/projects truthful. Prefer strong action verbs and meas
     changesSummary,
     atsTips: asStringArray(result.atsTips, 4),
   };
+}
+
+/**
+ * Keep post-enhance scores in a useful band so the rewrite feels effective,
+ * while still leaving room to drop when the JD is a weak fit (many gaps).
+ */
+function normalizeEnhancedAtsScore(
+  raw: unknown,
+  stillMissingCount: number
+): number {
+  const n = typeof raw === "number" && Number.isFinite(raw) ? raw : 78;
+  const rounded = Math.round(n);
+
+  // Strong / typical enhance → prefer 75–82.
+  // Many remaining gaps → allow mid-70s floor, not the 60s.
+  const floor = stillMissingCount >= 4 ? 72 : stillMissingCount >= 2 ? 75 : 78;
+  const ceiling = stillMissingCount >= 4 ? 80 : 88;
+
+  return Math.max(floor, Math.min(ceiling, rounded));
 }

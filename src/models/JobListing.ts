@@ -145,6 +145,10 @@ const JobListingSchema = new Schema(
     enhancedResumeMarkdown: {
       type: String,
     },
+    /** Structured sections used to render the downloadable PDF. */
+    enhancedResumeSections: {
+      type: Schema.Types.Mixed,
+    },
     enhancedResumeAtsTips: {
       type: [String],
       default: [],

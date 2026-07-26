@@ -5,12 +5,14 @@ import { searchAdzunaJobs } from "@/lib/agent/adzuna";
 import { searchJobsViaGrounding } from "@/lib/agent/search-jobs-via-grounding";
 import { enrichListing, withinExperienceWindow } from "@/lib/agent/enrich-listing";
 import { findReferralContacts } from "@/lib/agent/find-referral-contacts";
-import { dedupeByTitleCompanyLocation } from "@/lib/agent/dedupe";
+import { capPerCompany, dedupeByTitleCompanyLocation } from "@/lib/agent/dedupe";
 import type { UserProfileContext } from "@/lib/agent/search-jobs-via-grounding";
 
 /** Fewer enrich calls = biggest wall-clock win (each is a Gemini round-trip). */
 const MAX_ENRICH = 8;
 const CONCURRENCY = 6;
+/** Keeps one staffing agency from spending the whole enrichment budget. */
+const MAX_PER_COMPANY = 2;
 
 /** Run tasks with a concurrency cap to stay under Gemini rate limits. */
 async function mapWithConcurrency<T, R>(
@@ -81,7 +83,6 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
   ]);
 
   const merged = dedupeByTitleCompanyLocation([...adzuna, ...grounded]);
-  const toEnrich = merged.slice(0, MAX_ENRICH);
 
   let skippedDuplicates = 0;
   let enriched = 0;
@@ -94,13 +95,17 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
     ).map((j) => j.sourceUrl)
   );
 
-  const candidates = toEnrich.filter((j) => {
-    if (existingUrls.has(j.sourceUrl)) {
-      skippedDuplicates += 1;
-      return false;
-    }
-    return true;
+  // Remove known jobs before applying the enrichment cap. Slicing first meant
+  // eight duplicate results could hide dozens of fresh candidates behind them.
+  const freshCandidates = merged.filter((job) => {
+    const isDuplicate = existingUrls.has(job.sourceUrl);
+    if (isDuplicate) skippedDuplicates += 1;
+    return !isDuplicate;
   });
+  const candidates = capPerCompany(freshCandidates, MAX_PER_COMPANY).slice(
+    0,
+    MAX_ENRICH
+  );
 
   const enrichResults = await mapWithConcurrency(candidates, CONCURRENCY, (c) =>
     enrichListing(c, profile)

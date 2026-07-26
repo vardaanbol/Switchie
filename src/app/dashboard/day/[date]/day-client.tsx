@@ -11,6 +11,7 @@ import {
   HeaderAction,
   HeaderLink,
 } from "@/components/layout/app-header";
+import { useState } from "react";
 
 export function DayClient({
   date,
@@ -25,6 +26,7 @@ export function DayClient({
 }) {
   const firstName = userName.split(" ")[0] || "there";
   const label = formatDayLabel(date);
+  const [jobs, setJobs] = useState(initialJobs);
 
   return (
     <div className="comic-paper relative min-h-dvh overflow-x-hidden text-black">
@@ -60,7 +62,7 @@ export function DayClient({
         <section className="relative overflow-hidden rounded-lg border-[3px] border-black bg-[#fffef8] p-4 shadow-[5px_5px_0_#000] sm:p-8 sm:shadow-[6px_6px_0_#000]">
           <div className="mb-3 sm:absolute sm:-right-3 sm:-top-3 sm:mb-0 sm:rotate-12">
             <div className="inline-block rounded-md border-[3px] border-black bg-[#ff6b6b] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-[2px_2px_0_#000]">
-              {initialJobs.length} yawns
+              {jobs.length} yawns
             </div>
           </div>
           <h1 className="break-words font-black tracking-tight text-3xl leading-[1.05] sm:pr-16 sm:text-5xl sm:leading-[0.95] md:text-6xl">
@@ -71,9 +73,14 @@ export function DayClient({
         </section>
 
         <JobsCarousel
-          jobs={initialJobs}
+          jobs={jobs}
           emptyMessage={`No yawns on ${label}. Pick another day from the calendar.`}
           hasResume={hasResume}
+          onJobsPatch={(id, patch) => {
+            setJobs((prev) =>
+              prev.map((j) => (j._id === id ? { ...j, ...patch } : j))
+            );
+          }}
         />
       </main>
     </div>

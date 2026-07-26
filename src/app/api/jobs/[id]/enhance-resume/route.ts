@@ -113,6 +113,7 @@ export async function POST(
 
     job.set("enhancedResumeTex", enhanced.latex);
     job.set("enhancedResumeMarkdown", enhanced.markdown);
+    job.set("enhancedResumeSections", enhanced.sections);
     job.set("enhancedResumeAdditions", enhanced.additions);
     job.set("enhancedResumeStillMissing", enhanced.stillMissing);
     job.set("enhancedResumeAtsTips", [

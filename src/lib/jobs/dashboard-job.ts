@@ -150,6 +150,73 @@ export function dayKey(iso: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Calendar day in IST — used for "today's feed" so it matches the 6 AM digest. */
+export function dayKeyIst(date: Date | string = new Date()) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+export function isFoundToday(foundAt: string) {
+  return dayKeyIst(foundAt) === dayKeyIst();
+}
+
+/** Keep client-side scoring/enhance results when the parent list refreshes. */
+export function mergeDashboardJobs(
+  incoming: DashboardJob[],
+  previous: DashboardJob[]
+): DashboardJob[] {
+  if (previous.length === 0) return incoming;
+  const prevById = new Map(previous.map((job) => [job._id, job]));
+
+  return incoming.map((job) => {
+    const old = prevById.get(job._id);
+    if (!old) return job;
+
+    return {
+      ...job,
+      resumeMatchScore: job.resumeMatchScore ?? old.resumeMatchScore ?? null,
+      resumeMatchGaps:
+        (job.resumeMatchGaps?.length ?? 0) > 0
+          ? job.resumeMatchGaps
+          : old.resumeMatchGaps ?? [],
+      resumeMatchExperienceYears:
+        job.resumeMatchExperienceYears ?? old.resumeMatchExperienceYears ?? null,
+      resumeMatchRequiredYears:
+        job.resumeMatchRequiredYears ?? old.resumeMatchRequiredYears ?? null,
+      resumeMatchExperienceVerdict:
+        job.resumeMatchExperienceVerdict ??
+        old.resumeMatchExperienceVerdict ??
+        null,
+      resumeMatchAt: job.resumeMatchAt ?? old.resumeMatchAt ?? null,
+      enhancedResumeTex: job.enhancedResumeTex ?? old.enhancedResumeTex ?? null,
+      enhancedResumeMarkdown:
+        job.enhancedResumeMarkdown ?? old.enhancedResumeMarkdown ?? null,
+      enhancedResumeAtsTips:
+        (job.enhancedResumeAtsTips?.length ?? 0) > 0
+          ? job.enhancedResumeAtsTips
+          : old.enhancedResumeAtsTips ?? [],
+      enhancedResumeAdditions:
+        (job.enhancedResumeAdditions?.length ?? 0) > 0
+          ? job.enhancedResumeAdditions
+          : old.enhancedResumeAdditions ?? [],
+      enhancedResumeStillMissing:
+        (job.enhancedResumeStillMissing?.length ?? 0) > 0
+          ? job.enhancedResumeStillMissing
+          : old.enhancedResumeStillMissing ?? [],
+      enhancedResumeAt: job.enhancedResumeAt ?? old.enhancedResumeAt ?? null,
+      referralContacts:
+        (job.referralContacts?.length ?? 0) > 0
+          ? job.referralContacts
+          : old.referralContacts ?? [],
+    };
+  });
+}
+
 export function formatDayLabel(key: string) {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-IN", {

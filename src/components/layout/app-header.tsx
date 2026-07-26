@@ -8,7 +8,7 @@ export function AppHeader({
   maxWidth = "max-w-5xl",
 }: {
   actions?: ReactNode;
-  maxWidth?: "max-w-5xl" | "max-w-2xl";
+  maxWidth?: "max-w-5xl" | "max-w-3xl" | "max-w-2xl";
 }) {
   return (
     <header className="relative z-20 border-b-[3px] border-black bg-[#fffef8]/90 backdrop-blur-sm">

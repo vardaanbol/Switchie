@@ -2,6 +2,7 @@ import { auth, signIn } from "@/auth";
 import { redirect } from "next/navigation";
 import { LandingHero } from "@/components/ui/landing-hero";
 import { LandingFeatures } from "@/components/ui/landing-features";
+import { LandingFooter } from "@/components/layout/landing-footer";
 
 function GoogleMark() {
   return (
@@ -60,6 +61,7 @@ export default async function LandingPage({
       </LandingHero>
 
       <LandingFeatures />
+      <LandingFooter />
     </main>
   );
 }

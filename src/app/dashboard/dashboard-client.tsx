@@ -18,10 +18,13 @@ import {
 import { signOut } from "next-auth/react";
 import {
   dayKey,
+  isFoundToday,
+  mergeDashboardJobs,
   type DashboardJob,
 } from "@/lib/jobs/dashboard-job";
 import { filterJobsByExperience } from "@/lib/jobs/experience-filter";
 import { JobsCarousel } from "@/components/jobs/jobs-carousel";
+import { RefreshStepLoader } from "@/components/jobs/refresh-step-loader";
 import { SawbladeMark } from "@/components/brand/sawblade-mark";
 import {
   AppHeader,
@@ -260,7 +263,8 @@ export function DashboardClient({
 
   const counts = useMemo(
     () => ({
-      all: jobs.filter((j) => j.status !== "dismissed").length,
+      all: jobs.filter((j) => j.status !== "dismissed" && isFoundToday(j.foundAt))
+        .length,
       saved: jobs.filter((j) => j.status === "saved").length,
       applied: jobs.filter((j) => j.status === "applied").length,
     }),
@@ -272,7 +276,8 @@ export function DashboardClient({
       if (view === "saved") return job.status === "saved";
       if (view === "applied") return job.status === "applied";
       if (view === "calendar") return false;
-      return job.status !== "dismissed";
+      // Feed = today's yawns only; older days live on Calendar.
+      return job.status !== "dismissed" && isFoundToday(job.foundAt);
     });
   }, [jobs, view]);
 
@@ -303,7 +308,7 @@ export function DashboardClient({
   }
 
   const emptyCopy: Record<DashboardView, string> = {
-    all: "Hit REFRESH to ink in some roles, or wait for the morning digest.",
+    all: "No yawns for today yet. Hit REFRESH, or wait for the morning digest.",
     saved: "No saved jobs yet. Hit Save on a role and it’ll show up here.",
     applied: "Nothing applied yet. When you hit Applied!, it lands here.",
     calendar: "Open a day on the calendar to check those yawns.",
@@ -351,6 +356,8 @@ export function DashboardClient({
 
       <SawbladeMark className="pointer-events-none absolute -left-8 top-28 size-28 text-black/[0.06] sm:size-36" />
       <SawbladeMark className="pointer-events-none absolute -right-10 bottom-40 size-40 rotate-12 text-black/[0.05]" />
+
+      <RefreshStepLoader active={refreshing} />
 
       <AppHeader
         actions={
@@ -451,6 +458,11 @@ export function DashboardClient({
             jobs={filtered}
             emptyMessage={emptyCopy[view]}
             hasResume={hasResume}
+            onJobsPatch={(id, patch) => {
+              setJobs((prev) =>
+                prev.map((j) => (j._id === id ? { ...j, ...patch } : j))
+              );
+            }}
           />
         )}
       </main>

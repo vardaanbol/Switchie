@@ -19,7 +19,10 @@ import {
   X,
 } from "lucide-react";
 import type { JobStatus } from "@/models";
-import type { DashboardJob } from "@/lib/jobs/dashboard-job";
+import {
+  mergeDashboardJobs,
+  type DashboardJob,
+} from "@/lib/jobs/dashboard-job";
 
 function formatInr(n?: number) {
   if (typeof n !== "number") return null;
@@ -104,14 +107,20 @@ function LinkedInMark({ className = "" }: { className?: string }) {
   );
 }
 
-function downloadTex(filename: string, content: string) {
-  const blob = new Blob([content], { type: "application/x-tex;charset=utf-8" });
+function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadTex(filename: string, content: string) {
+  downloadBlob(
+    filename,
+    new Blob([content], { type: "application/x-tex;charset=utf-8" })
+  );
 }
 
 function EnhancedResumeModal({
@@ -137,6 +146,8 @@ function EnhancedResumeModal({
   enhancing: boolean;
   onRegenerate: () => void;
 }) {
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -165,6 +176,26 @@ function EnhancedResumeModal({
   const shownAdditions =
     additions.length > 0 ? additions : legacyChanges;
   const displayTips = tips.filter((t) => !t.startsWith("Change: "));
+
+  async function downloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/jobs/${job._id}/enhanced-resume-pdf`);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error ?? "PDF download failed");
+      }
+      const blob = await res.blob();
+      downloadBlob(`${safeName}-ats-resume.pdf`, blob);
+      toast.success("PDF downloaded — ready to upload");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PDF download failed");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
 
   return (
     <div
@@ -199,9 +230,9 @@ function EnhancedResumeModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
           <p className="mb-2 text-sm font-medium text-black/70">
-            Ready to upload after you compile the .tex in Overleaf. Everything
-            below comes from your resume — we only rephrased and emphasized what
-            already matches this JD.
+            Download a ready-to-upload PDF below. Everything comes from your
+            resume — we only rephrased and emphasized what already matches this
+            JD.
           </p>
 
           <p className="mb-3 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-sm border-2 border-black bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
@@ -277,15 +308,16 @@ function EnhancedResumeModal({
         <div className="sticky bottom-0 z-10 grid shrink-0 grid-cols-1 gap-2 border-t-[2.5px] border-black bg-[#fffef8] p-4 sm:flex sm:flex-wrap sm:p-5">
           <button
             type="button"
-            disabled={!tex || enhancing}
-            onClick={() => {
-              downloadTex(`${safeName}-ats-resume.tex`, tex);
-              toast.success("Downloaded .tex — open it in Overleaf");
-            }}
+            disabled={!markdown || enhancing || downloadingPdf}
+            onClick={downloadPdf}
             className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-black px-3.5 text-sm font-black text-white shadow-[2px_2px_0_#333] disabled:opacity-50 sm:h-10"
           >
-            <Download className="size-3.5" />
-            Download .tex
+            {downloadingPdf ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Download className="size-3.5" />
+            )}
+            Download PDF
           </button>
           <button
             type="button"
@@ -299,20 +331,23 @@ function EnhancedResumeModal({
             <Copy className="size-3.5" />
             Copy Markdown
           </button>
-          <a
-            href="https://www.overleaf.com/project"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-[#a8e6ff] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] sm:h-10"
+          <button
+            type="button"
+            disabled={!tex || enhancing}
+            onClick={() => {
+              downloadTex(`${safeName}-ats-resume.tex`, tex);
+              toast.success("Downloaded .tex");
+            }}
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50 sm:h-10"
           >
-            <ExternalLink className="size-3.5" />
-            Open Overleaf
-          </a>
+            <FileText className="size-3.5" />
+            .tex
+          </button>
           <button
             type="button"
             disabled={enhancing}
             onClick={onRegenerate}
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50 sm:h-10"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-[#ffe566] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] disabled:opacity-50 sm:h-10"
           >
             {enhancing ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -376,6 +411,9 @@ function JobCard({
 
   const resumeScore =
     typeof job.resumeMatchScore === "number" ? job.resumeMatchScore : null;
+  const hasEnhancedResume = Boolean(
+    job.enhancedResumeMarkdown || job.enhancedResumeTex || job.enhancedResumeAt
+  );
   const jdYears =
     typeof job.requiredExperienceYears === "number"
       ? job.requiredExperienceYears
@@ -474,7 +512,10 @@ function JobCard({
       return;
     }
 
-    if (!force && job.enhancedResumeTex && job.enhancedResumeMarkdown) {
+    const hasCached =
+      Boolean(job.enhancedResumeMarkdown) || Boolean(job.enhancedResumeTex);
+
+    if (!force && hasCached) {
       setModalOpen(true);
       return;
     }
@@ -500,7 +541,9 @@ function JobCard({
           : new Date().toISOString(),
       });
       setModalOpen(true);
-      toast.success("Enhanced ATS resume ready");
+      toast.success(
+        data.cached ? "Loaded saved enhanced resume" : "Enhanced ATS resume ready"
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Enhance failed");
     } finally {
@@ -725,10 +768,14 @@ function JobCard({
                         ) : (
                           <FileText className="size-3" />
                         )}
-                        {enhancing ? "Enhancing…" : "Enhanced Resume"}
+                        {enhancing
+                          ? "Enhancing…"
+                          : hasEnhancedResume
+                            ? "View enhanced"
+                            : "Enhanced Resume"}
                       </button>
                     )}
-                    {job.enhancedResumeTex ? (
+                    {hasEnhancedResume ? (
                       <button
                         type="button"
                         onClick={() => setModalOpen(true)}
@@ -903,10 +950,12 @@ export function JobsCarousel({
   jobs,
   emptyMessage,
   hasResume = false,
+  onJobsPatch,
 }: {
   jobs: DashboardJob[];
   emptyMessage: string;
   hasResume?: boolean;
+  onJobsPatch?: (id: string, patch: Partial<DashboardJob>) => void;
 }) {
   const [items, setItems] = useState(jobs);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -914,8 +963,11 @@ export function JobsCarousel({
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setItems(jobs);
-    setCarouselIndex(0);
+    setItems((prev) => mergeDashboardJobs(jobs, prev));
+    setCarouselIndex((i) => {
+      if (jobs.length === 0) return 0;
+      return Math.min(i, jobs.length - 1);
+    });
   }, [jobs]);
 
   useEffect(() => {
@@ -925,6 +977,13 @@ export function JobsCarousel({
     }
     setCarouselIndex((i) => Math.min(i, items.length - 1));
   }, [items.length]);
+
+  function patchJob(id: string, patch: Partial<DashboardJob>) {
+    setItems((prev) =>
+      prev.map((j) => (j._id === id ? { ...j, ...patch } : j))
+    );
+    onJobsPatch?.(id, patch);
+  }
 
   async function updateStatus(id: string, next: JobStatus) {
     setPendingId(id);
@@ -1039,17 +1098,9 @@ export function JobsCarousel({
             }
             onUpdateStatus={updateStatus}
             onReferralsUpdate={(id, contacts) =>
-              setItems((prev) =>
-                prev.map((j) =>
-                  j._id === id ? { ...j, referralContacts: contacts } : j
-                )
-              )
+              patchJob(id, { referralContacts: contacts })
             }
-            onJobPatch={(id, patch) =>
-              setItems((prev) =>
-                prev.map((j) => (j._id === id ? { ...j, ...patch } : j))
-              )
-            }
+            onJobPatch={patchJob}
           />
         </div>
 
