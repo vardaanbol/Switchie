@@ -1016,26 +1016,16 @@ export function JobsCarousel({
       if (!res.ok) throw new Error(data.error ?? "Update failed");
 
       const updated = data.job as Partial<DashboardJob> & { _id: string };
-      setItems((prev) =>
-        prev.map((j) =>
-          j._id === id
-            ? {
-                ...j,
-                status: next,
-                savedAt:
-                  updated.savedAt !== undefined ? updated.savedAt : j.savedAt,
-                appliedAt:
-                  updated.appliedAt !== undefined
-                    ? updated.appliedAt
-                    : j.appliedAt,
-              }
-            : j
-        )
-      );
+      const patch: Partial<DashboardJob> = { status: next };
+      if (updated.savedAt !== undefined) patch.savedAt = updated.savedAt;
+      if (updated.appliedAt !== undefined) patch.appliedAt = updated.appliedAt;
+      // Keep carousel + dashboard tabs/counts in sync (Applied/Saved/Pass).
+      patchJob(id, patch);
 
       if (next === "saved") toast.success("Saved — find it in the Saved tab");
       else if (next === "applied")
         toast.success("Marked applied — see it under Applied");
+      else if (next === "dismissed") toast.success("Passed — gone from your feed");
       else toast.success(`Marked as ${next}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
