@@ -28,11 +28,28 @@ function formatShortDate(iso: string) {
   });
 }
 
-function isLinkedInProfile(url: string) {
+function isReferralProfile(url: string) {
   try {
-    return new URL(url).hostname.replace(/^www\./, "").endsWith("linkedin.com");
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {
     return false;
+  }
+}
+
+function referralSourceLabel(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "linkedin.com" || host.endsWith(".linkedin.com")) {
+      return "LinkedIn";
+    }
+    if (host === "github.com") return "GitHub";
+    if (host === "twitter.com" || host === "x.com") return "X";
+    if (host === "theorg.com" || host.endsWith(".theorg.com")) return "The Org";
+    if (host === "medium.com") return "Medium";
+    return host.split(".")[0] || "Web";
+  } catch {
+    return "Web";
   }
 }
 
@@ -55,7 +72,7 @@ function SharedCard({
     : "Salary not listed";
 
   const referrals = (share.referralContacts ?? []).filter((c) =>
-    isLinkedInProfile(c.profileUrl)
+    isReferralProfile(c.profileUrl)
   );
   const pros = share.pros ?? [];
   const cons = share.cons ?? [];
@@ -191,7 +208,7 @@ function SharedCard({
               {referrals.length > 0 ? (
                 <div className="rounded-md border-[2.5px] border-black bg-white p-3 sm:col-span-2">
                   <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em]">
-                    LinkedIn referrals · current employees
+                    Referrals · LinkedIn + web
                   </p>
                   <ul className="space-y-2">
                     {referrals.map((c) => (
@@ -205,7 +222,7 @@ function SharedCard({
                           <span className="min-w-0">
                             <span className="block truncate">{c.name}</span>
                             <span className="block truncate text-xs font-medium text-black/55">
-                              {c.title}
+                              {c.title} · {referralSourceLabel(c.profileUrl)}
                             </span>
                           </span>
                           <ExternalLink className="size-3.5 shrink-0" />

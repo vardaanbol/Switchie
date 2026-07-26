@@ -5,25 +5,35 @@ import { findReferralContacts } from "@/lib/agent/find-referral-contacts";
 
 export const maxDuration = 180;
 
+function isUsableReferralUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const result = await requireUser();
   if ("error" in result) return result.error;
   const { user } = result;
   const { id } = await context.params;
+  const force = new URL(req.url).searchParams.get("force") === "1";
 
   const job = await JobListing.findOne({ _id: id, userId: user._id });
   if (!job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
-  // Reuse existing verified LinkedIn contacts if we already have them
+  // Reuse existing verified contacts (LinkedIn + other public web sources)
   const existing = (job.referralContacts ?? []).filter((c) =>
-    /linkedin\.com\/in\//i.test(c.profileUrl)
+    isUsableReferralUrl(c.profileUrl)
   );
-  if (existing.length > 0) {
+  if (!force && existing.length > 0) {
     return NextResponse.json({
       referralContacts: existing.map((c) => ({
         name: c.name,

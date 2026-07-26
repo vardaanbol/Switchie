@@ -82,6 +82,31 @@ function carouselPages(
   return result;
 }
 
+function isReferralProfile(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function referralSourceLabel(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "linkedin.com" || host.endsWith(".linkedin.com")) {
+      return "LinkedIn";
+    }
+    if (host === "github.com") return "GitHub";
+    if (host === "twitter.com" || host === "x.com") return "X";
+    if (host === "theorg.com" || host.endsWith(".theorg.com")) return "The Org";
+    if (host === "medium.com") return "Medium";
+    return host.split(".")[0] || "Web";
+  } catch {
+    return "Web";
+  }
+}
+
 function isLinkedInProfile(url: string) {
   return /linkedin\.com\/in\//i.test(url);
 }
@@ -399,8 +424,8 @@ function JobCard({
   const savedOn = formatShortDate(job.savedAt);
   const appliedOn = formatShortDate(job.appliedAt);
 
-  const linkedInContacts = (job.referralContacts ?? []).filter((c) =>
-    isLinkedInProfile(c.profileUrl)
+  const referralContacts = (job.referralContacts ?? []).filter((c) =>
+    isReferralProfile(c.profileUrl)
   );
   const [findingReferrals, setFindingReferrals] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
@@ -430,14 +455,17 @@ function JobCard({
 
   async function findReferrals(force = false) {
     if (findingReferrals) return;
-    if (!force && linkedInContacts.length > 0) return;
+    if (!force && referralContacts.length > 0) return;
 
     setFindingReferrals(true);
     setReferralError(null);
     try {
-      const res = await fetch(`/api/jobs/${job._id}/referrals`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/jobs/${job._id}/referrals${force ? "?force=1" : ""}`,
+        {
+          method: "POST",
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Referral search failed");
 
@@ -447,7 +475,7 @@ function JobCard({
       setSearchedEmpty(contacts.length === 0);
       if (contacts.length > 0) {
         toast.success(
-          `Found ${contacts.length} LinkedIn referral${contacts.length === 1 ? "" : "s"}`
+          `Found ${contacts.length} referral${contacts.length === 1 ? "" : "s"}`
         );
       }
     } catch (err) {
@@ -556,7 +584,7 @@ function JobCard({
 
   useEffect(() => {
     if (!expanded) return;
-    if (linkedInContacts.length > 0) return;
+    if (referralContacts.length > 0) return;
     if (searchedEmpty || referralError) return;
     void findReferrals();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once when panel opens empty
@@ -834,7 +862,7 @@ function JobCard({
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em]">
                   <LinkedInMark className="size-3.5" />
-                  LinkedIn referrals · current employees
+                  Referrals · LinkedIn + web
                 </p>
                 <button
                   type="button"
@@ -854,42 +882,55 @@ function JobCard({
                 </button>
               </div>
 
-              {findingReferrals && linkedInContacts.length === 0 ? (
+              {findingReferrals && referralContacts.length === 0 ? (
                 <p className="text-sm font-medium text-black/55">
-                  Searching & verifying LinkedIn profiles currently at{" "}
-                  {job.company}…
+                  Searching LinkedIn, team pages, GitHub, and other public
+                  profiles currently at {job.company}…
                 </p>
-              ) : linkedInContacts.length > 0 ? (
+              ) : referralContacts.length > 0 ? (
                 <ul className="flex flex-wrap gap-2">
-                  {linkedInContacts.map((c, i) => (
-                    <a
-                      key={`${c.profileUrl}-${c.name}-${i}`}
-                      href={c.profileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-md border-2 border-black bg-white px-2.5 py-1.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
-                    >
-                      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm border-2 border-black bg-[#0a66c2] text-white">
-                        <LinkedInMark className="size-3.5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate leading-tight">
-                          {c.name}
+                  {referralContacts.map((c, i) => {
+                    const linkedIn = isLinkedInProfile(c.profileUrl);
+                    const source = referralSourceLabel(c.profileUrl);
+                    return (
+                      <a
+                        key={`${c.profileUrl}-${c.name}-${i}`}
+                        href={c.profileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-md border-2 border-black bg-white px-2.5 py-1.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
+                      >
+                        <span
+                          className={[
+                            "inline-flex size-6 shrink-0 items-center justify-center rounded-sm border-2 border-black text-[9px] font-black uppercase text-white",
+                            linkedIn ? "bg-[#0a66c2]" : "bg-black",
+                          ].join(" ")}
+                        >
+                          {linkedIn ? (
+                            <LinkedInMark className="size-3.5" />
+                          ) : (
+                            source.slice(0, 2)
+                          )}
                         </span>
-                        <span className="block truncate text-[11px] font-medium text-black/55">
-                          {c.title} · Current
+                        <span className="min-w-0">
+                          <span className="block truncate leading-tight">
+                            {c.name}
+                          </span>
+                          <span className="block truncate text-[11px] font-medium text-black/55">
+                            {c.title} · {source}
+                          </span>
                         </span>
-                      </span>
-                    </a>
-                  ))}
+                      </a>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm font-medium text-black/55">
                   {referralError
                     ? referralError
                     : searchedEmpty
-                      ? `No verified current LinkedIn profiles found for ${job.company}. Try Find again, or check the company name.`
-                      : `Open this panel to search LinkedIn for people at ${job.company}.`}
+                      ? `No verified current referrals found for ${job.company}. Try Find again, or check the company name.`
+                      : `Open this panel to search LinkedIn and the web for people at ${job.company}.`}
                 </p>
               )}
             </div>
