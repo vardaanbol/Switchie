@@ -11,7 +11,7 @@ const FEATURES = [
   {
     icon: Search,
     title: "Auto Job Hunt",
-    body: "We scour Adzuna for roles that match your skills, salary and work-mode — while you nap.",
+    body: "We hunt roles that match your skills, salary, and work mode — while you nap.",
     accent: "bg-[#a8e6ff]",
     tilt: "sm:-rotate-[0.8deg]",
   },
@@ -63,11 +63,11 @@ export function LandingFeatures() {
             What&apos;s inside
           </div>
           <h2 className="text-3xl font-black tracking-tight sm:text-5xl">
-            Your job hunt, on autopilot
+            We fetch. You Y.A.W.N
           </h2>
           <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-relaxed text-black/60">
-            Y.A.W.N does the boring parts so you can spend your energy on the
-            interviews that matter.
+          Y.A.W.N does the boring parts so you can spend your energy on the
+          interviews that matter.
           </p>
         </div>
 

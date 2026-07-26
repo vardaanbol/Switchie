@@ -13,6 +13,10 @@ export function filterJobsByExperience(
   if (typeof candidateYears !== "number") return jobs;
 
   return jobs.filter((job) => {
+    // Explicit user intent outranks the heuristic — a job someone saved or
+    // applied to (including one shared by another Yawner) must stay visible.
+    if (job.status === "saved" || job.status === "applied") return true;
+
     const required =
       typeof job.requiredExperienceYears === "number"
         ? job.requiredExperienceYears

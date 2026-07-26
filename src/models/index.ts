@@ -12,3 +12,13 @@ export {
   type EmailStatus,
   type DigestLogDocument,
 } from "./DigestLog";
+export {
+  default as Feedback,
+  type FeedbackDocument,
+} from "./Feedback";
+export {
+  default as SharedYawn,
+  SHARED_YAWN_STATUSES,
+  type SharedYawnStatus,
+  type SharedYawnDocument,
+} from "./SharedYawn";

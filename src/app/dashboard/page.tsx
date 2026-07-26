@@ -42,6 +42,7 @@ export default async function DashboardPage({
     view === "calendar" ||
     view === "saved" ||
     view === "applied" ||
+    view === "shared" ||
     view === "all"
       ? view
       : "all";

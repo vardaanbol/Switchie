@@ -21,14 +21,6 @@ export function LandingFooter() {
           >
             Creator
           </Link>
-          <a
-            href="https://www.linkedin.com/in/vardaan-bhatia12/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-10 items-center rounded-md border-[2.5px] border-black bg-white px-3 shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
-          >
-            LinkedIn
-          </a>
         </nav>
       </div>
     </footer>

@@ -14,17 +14,20 @@ import {
   LogOut,
   RefreshCw,
   Settings,
+  Share2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import {
   dayKey,
   isFoundToday,
-  mergeDashboardJobs,
   type DashboardJob,
 } from "@/lib/jobs/dashboard-job";
 import { filterJobsByExperience } from "@/lib/jobs/experience-filter";
+import type { SharedYawnCard } from "@/lib/jobs/shared-yawn";
 import { JobsCarousel } from "@/components/jobs/jobs-carousel";
+import { SharedYawnsList } from "@/components/jobs/shared-yawns-list";
 import { RefreshStepLoader } from "@/components/jobs/refresh-step-loader";
+import { FeedbackButton } from "@/components/feedback/feedback-form";
 import { SawbladeMark } from "@/components/brand/sawblade-mark";
 import {
   AppHeader,
@@ -34,7 +37,7 @@ import {
 
 export type { DashboardJob };
 
-type DashboardView = "all" | "saved" | "applied" | "calendar";
+type DashboardView = "all" | "saved" | "applied" | "shared" | "calendar";
 
 function greetingLines(name: string): Array<[string, string?]> {
   return [
@@ -233,6 +236,7 @@ export function DashboardClient({
   const greetings = useMemo(() => greetingLines(firstName), [firstName]);
   const [greetingIndex, setGreetingIndex] = useState(0);
   const [jobs, setJobs] = useState(initialJobs);
+  const [shares, setShares] = useState<SharedYawnCard[]>([]);
   const [view, setView] = useState<DashboardView>(initialView);
   const [refreshing, startRefresh] = useTransition();
   const [calendarMonth, setCalendarMonth] = useState({
@@ -261,21 +265,63 @@ export function DashboardClient({
     }
   }, [firstName, greetings.length]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/shared-yawns");
+        const data = await res.json();
+        if (active && res.ok) {
+          setShares((data.shares ?? []) as SharedYawnCard[]);
+        }
+      } catch {
+        /* shares are additive — ignore load failures */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  /** Saving a share creates a listing server-side — pull it into Saved. */
+  async function reloadJobs() {
+    try {
+      const res = await fetch("/api/jobs");
+      const data = await res.json();
+      if (!res.ok) return;
+      setJobs(
+        filterJobsByExperience(
+          data.jobs as DashboardJob[],
+          resumeExperienceYears ?? data.resumeExperienceYears ?? null,
+          2
+        )
+      );
+    } catch {
+      /* keep current list on failure */
+    }
+  }
+
   const counts = useMemo(
     () => ({
       all: jobs.filter((j) => j.status !== "dismissed" && isFoundToday(j.foundAt))
         .length,
       saved: jobs.filter((j) => j.status === "saved").length,
       applied: jobs.filter((j) => j.status === "applied").length,
+      shared: shares.filter((s) => s.status !== "dismissed").length,
     }),
-    [jobs]
+    [jobs, shares]
+  );
+
+  const visibleShares = useMemo(
+    () => shares.filter((s) => s.status !== "dismissed"),
+    [shares]
   );
 
   const filtered = useMemo(() => {
     return jobs.filter((job) => {
       if (view === "saved") return job.status === "saved";
       if (view === "applied") return job.status === "applied";
-      if (view === "calendar") return false;
+      if (view === "calendar" || view === "shared") return false;
       // Feed = today's yawns only; older days live on Calendar.
       return job.status !== "dismissed" && isFoundToday(job.foundAt);
     });
@@ -311,6 +357,8 @@ export function DashboardClient({
     all: "No yawns for today yet. Hit REFRESH, or wait for the morning digest.",
     saved: "No saved jobs yet. Hit Save on a role and it’ll show up here.",
     applied: "Nothing applied yet. When you hit Applied!, it lands here.",
+    shared:
+      "No shared yawns yet. When another Yawner sends you a role, it shows up here.",
     calendar: "Open a day on the calendar to check those yawns.",
   };
 
@@ -343,6 +391,13 @@ export function DashboardClient({
       accent: "bg-[#ffe566]",
     },
     {
+      id: "shared",
+      label: "Shared Yawns",
+      icon: <Share2 className="size-3.5" />,
+      count: counts.shared,
+      accent: "bg-[#c9b6ff]",
+    },
+    {
       id: "calendar",
       label: "Calendar",
       icon: <CalendarDays className="size-3.5" />,
@@ -362,23 +417,11 @@ export function DashboardClient({
       <AppHeader
         actions={
           <>
+            <FeedbackButton />
             <HeaderLink href="/settings" aria-label="Settings">
               <Settings className="size-3.5" />
               <span className="hidden sm:inline">Settings</span>
             </HeaderLink>
-            <HeaderAction
-              onClick={refreshNow}
-              disabled={refreshing}
-              aria-label={refreshing ? "Searching" : "Refresh jobs"}
-              className="bg-[#ffe566] font-black"
-            >
-              <RefreshCw
-                className={`size-3.5 ${refreshing ? "animate-spin" : ""}`}
-              />
-              <span className="hidden sm:inline">
-                {refreshing ? "SEARCH…" : "REFRESH"}
-              </span>
-            </HeaderAction>
             <HeaderAction
               aria-label="Sign out"
               onClick={() => {
@@ -417,9 +460,23 @@ export function DashboardClient({
               </>
             ) : null}
           </h1>
+          <div className="mt-5 sm:mt-6">
+            <button
+              type="button"
+              onClick={refreshNow}
+              disabled={refreshing}
+              aria-label={refreshing ? "Searching" : "Refresh jobs"}
+              className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-md border-[3px] border-black bg-[#ffe566] px-5 text-sm font-black uppercase tracking-[0.14em] shadow-[4px_4px_0_#000] transition-transform hover:-translate-y-0.5 disabled:opacity-60 sm:h-11 sm:w-auto"
+            >
+              <RefreshCw
+                className={`size-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              {refreshing ? "Searching…" : "Refresh"}
+            </button>
+          </div>
         </section>
 
-        <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {tabs.map((tab) => {
             const active = view === tab.id;
             return (
@@ -452,6 +509,17 @@ export function DashboardClient({
             jobs={jobs}
             month={calendarMonth}
             onMonthChange={setCalendarMonth}
+          />
+        ) : view === "shared" ? (
+          <SharedYawnsList
+            shares={visibleShares}
+            emptyMessage={emptyCopy.shared}
+            onPatch={(id, patch) => {
+              setShares((prev) =>
+                prev.map((s) => (s._id === id ? { ...s, ...patch } : s))
+              );
+              if (patch.status === "saved") void reloadJobs();
+            }}
           />
         ) : (
           <JobsCarousel

@@ -16,6 +16,7 @@ import {
   MapPin,
   RefreshCw,
   Save,
+  Share2,
   X,
 } from "lucide-react";
 import type { JobStatus } from "@/models";
@@ -23,6 +24,7 @@ import {
   mergeDashboardJobs,
   type DashboardJob,
 } from "@/lib/jobs/dashboard-job";
+import { ShareJobModal } from "@/components/jobs/share-job-modal";
 
 function formatInr(n?: number) {
   if (typeof n !== "number") return null;
@@ -408,6 +410,7 @@ function JobCard({
   const [resumeScoreError, setResumeScoreError] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const resumeScore =
     typeof job.resumeMatchScore === "number" ? job.resumeMatchScore : null;
@@ -922,6 +925,14 @@ function JobCard({
         </button>
         <button
           type="button"
+          onClick={() => setShareOpen(true)}
+          className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-[#b5f2c9] px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 sm:h-10"
+        >
+          <Share2 className="size-3.5" />
+          Share
+        </button>
+        <button
+          type="button"
           disabled={pendingId === job._id}
           onClick={() => onUpdateStatus(job._id, "dismissed")}
           className="inline-flex h-11 items-center justify-center rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold text-black/50 shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 hover:text-black disabled:opacity-50 sm:h-10"
@@ -929,6 +940,14 @@ function JobCard({
           Pass
         </button>
       </div>
+
+      {shareOpen ? (
+        <ShareJobModal
+          jobId={job._id}
+          jobTitle={`${job.title} · ${job.company}`}
+          onClose={() => setShareOpen(false)}
+        />
+      ) : null}
 
       <EnhancedResumeModal
         open={modalOpen}
