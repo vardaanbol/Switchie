@@ -7,13 +7,17 @@ import {
   fillReferralsForJobs,
   runJobSearchAgent,
 } from "@/lib/agent/run-job-search-agent";
-import { sendDailyDigest } from "@/lib/email/send-digest";
+import {
+  getDigestFromAddress,
+  isResendTestFrom,
+  sendDailyDigest,
+} from "@/lib/email/send-digest";
 import { isProfileComplete } from "@/lib/profile";
 
 export const maxDuration = 300;
 
 function authorize(req: Request) {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET?.trim();
   if (!secret) return false;
   const header = req.headers.get("authorization");
   return header === `Bearer ${secret}`;
@@ -21,12 +25,20 @@ function authorize(req: Request) {
 
 async function runDigest() {
   await connectDB();
+  const from = getDigestFromAddress();
+  if (isResendTestFrom(from)) {
+    console.error(
+      "[cron/daily-digest] RESEND_FROM_EMAIL still uses @resend.dev — digests will fail for every inbox except the Resend account owner. Verify a domain and update the env var."
+    );
+  }
+
   const users = await User.find({
     "profile.emailDigestEnabled": true,
   });
 
   const results: Array<{
     userId: string;
+    email?: string;
     emailStatus: string;
     jobs: number;
     error?: string;
@@ -36,6 +48,7 @@ async function runDigest() {
     if (!isProfileComplete(user.profile)) {
       results.push({
         userId: user._id.toString(),
+        email: user.email,
         emailStatus: "skipped",
         jobs: 0,
         error: "incomplete profile",
@@ -65,8 +78,10 @@ async function runDigest() {
         });
         results.push({
           userId: user._id.toString(),
+          email: user.email,
           emailStatus: "skipped",
           jobs: 0,
+          error: "no new jobs",
         });
         continue;
       }
@@ -103,6 +118,7 @@ async function runDigest() {
 
       results.push({
         userId: user._id.toString(),
+        email: user.email,
         emailStatus: "sent",
         jobs: jobs.length,
       });
@@ -111,6 +127,10 @@ async function runDigest() {
       await new Promise((r) => setTimeout(r, 400));
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown error";
+      console.error(
+        `[cron/daily-digest] failed for ${user.email}:`,
+        message
+      );
       await DigestLog.create({
         userId: user._id,
         sentAt: new Date(),
@@ -120,6 +140,7 @@ async function runDigest() {
       });
       results.push({
         userId: user._id.toString(),
+        email: user.email,
         emailStatus: "failed",
         jobs: 0,
         error: message,
@@ -127,21 +148,25 @@ async function runDigest() {
     }
   }
 
-  return results;
+  return {
+    from,
+    usingTestFrom: isResendTestFrom(from),
+    results,
+  };
 }
 
 export async function GET(req: Request) {
   if (!authorize(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const results = await runDigest();
-  return NextResponse.json({ ok: true, results });
+  const payload = await runDigest();
+  return NextResponse.json({ ok: true, ...payload });
 }
 
 export async function POST(req: Request) {
   if (!authorize(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const results = await runDigest();
-  return NextResponse.json({ ok: true, results });
+  const payload = await runDigest();
+  return NextResponse.json({ ok: true, ...payload });
 }

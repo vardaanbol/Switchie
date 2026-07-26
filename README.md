@@ -39,6 +39,22 @@ curl -X POST http://localhost:3000/api/cron/daily-digest \
 
 Cron schedule in `vercel.json`: `30 0 * * *` UTC (= 6:00 AM IST).
 
+### Email digests (Resend)
+
+Daily digests fail for every inbox except the Resend account owner while
+`RESEND_FROM_EMAIL` uses `@resend.dev`.
+
+1. Add + verify a domain at [resend.com/domains](https://resend.com/domains)
+2. Set `RESEND_FROM_EMAIL` on Vercel to an address on that domain, e.g. `Y.A.W.N <digest@yourdomain.com>`
+3. Redeploy (or wait for the next cron), then optionally re-run:
+
+```bash
+curl -X GET https://YOUR_HOST/api/cron/daily-digest \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Check outcomes in MongoDB `digestlogs` (`emailStatus`: `sent` / `failed` / `skipped`).
+
 ## Main routes
 
 | Path | Purpose |
