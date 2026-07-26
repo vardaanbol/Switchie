@@ -3,6 +3,7 @@ import {
   FileText,
   Mail,
   Search,
+  Share2,
   Target,
   Users,
 } from "lucide-react";
@@ -11,7 +12,7 @@ const FEATURES = [
   {
     icon: Search,
     title: "Auto Job Hunt",
-    body: "We hunt roles that match your skills, salary, and work mode — while you nap.",
+    body: "We hunt live roles that match your skills, salary, and work mode — and drop the expired ones.",
     accent: "bg-[#a8e6ff]",
     tilt: "sm:-rotate-[0.8deg]",
   },
@@ -37,20 +38,28 @@ const FEATURES = [
     tilt: "sm:-rotate-[0.5deg]",
   },
   {
+    icon: Share2,
+    title: "Shared Yawns",
+    body: "Pass a role to another Yawner with a note — it lands in their Shared Yawns tab.",
+    accent: "bg-[#b5f2c9]",
+    tilt: "sm:rotate-[0.5deg]",
+  },
+  {
     icon: CalendarDays,
     title: "Yawn Calendar",
     body: "Flip through any day to revisit exactly what we suggested — saved forever.",
-    accent: "bg-[#b5f2c9]",
+    accent: "bg-[#a8e6ff]",
     tilt: "sm:-rotate-[0.7deg]",
   },
   {
     icon: Mail,
     title: "Morning Digest",
-    body: "A tidy email of the day's top matches lands in your inbox every morning.",
+    body: "A tidy email of the day’s top matches — waking up to yawns, not tab chaos.",
     accent: "bg-[#ffd6f0]",
     tilt: "sm:rotate-[0.7deg]",
+    badge: "Under testing · not for users yet",
   },
-];
+] as const;
 
 export function LandingFeatures() {
   return (
@@ -63,22 +72,32 @@ export function LandingFeatures() {
             What&apos;s inside
           </div>
           <h2 className="text-3xl font-black tracking-tight sm:text-5xl">
-            We fetch. You Y.A.W.N
+            We fetch. You Y.A.W.N.
           </h2>
           <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-relaxed text-black/60">
-          Y.A.W.N does the boring parts so you can spend your energy on the
-          interviews that matter.
+            Roles, matches, and resumes land while you nap — save your energy
+            for the interviews that matter.
           </p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+        {/* Flex + justify-center keeps the leftover last-row card(s) centered. */}
+        <div className="flex flex-wrap justify-center gap-5 sm:gap-6">
           {FEATURES.map((feature) => {
             const Icon = feature.icon;
+            const badge = "badge" in feature ? feature.badge : null;
             return (
               <div
                 key={feature.title}
-                className={`rounded-lg border-[3px] border-black bg-[#fffef8] p-5 shadow-[5px_5px_0_#000] transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0_#000] sm:shadow-[6px_6px_0_#000] ${feature.tilt}`}
+                className={[
+                  "relative w-full rounded-lg border-[3px] border-black bg-[#fffef8] p-5 shadow-[5px_5px_0_#000] transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0_#000] sm:w-[calc(50%-0.75rem)] sm:shadow-[6px_6px_0_#000] lg:w-[calc((100%-3rem)/3)]",
+                  feature.tilt,
+                ].join(" ")}
               >
+                {badge ? (
+                  <div className="absolute -right-2 -top-2 z-10 rotate-6 rounded-md border-[2.5px] border-black bg-[#ff6b6b] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[2px_2px_0_#000]">
+                    {badge}
+                  </div>
+                ) : null}
                 <div
                   className={`mb-4 inline-flex size-12 items-center justify-center rounded-md border-[3px] border-black ${feature.accent} shadow-[3px_3px_0_#000]`}
                 >
