@@ -21,6 +21,12 @@ export function LandingFooter() {
           >
             Creator
           </Link>
+          <Link
+            href="/disclaimer"
+            className="inline-flex h-10 items-center rounded-md border-[2.5px] border-black bg-white px-3 shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5"
+          >
+            Disclaimer
+          </Link>
         </nav>
       </div>
     </footer>
