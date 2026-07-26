@@ -3,6 +3,10 @@ import Google from "next-auth/providers/google";
 import { connectDB } from "@/lib/db/mongodb";
 import User from "@/models/User";
 import { isProfileComplete } from "@/lib/profile";
+import {
+  assertCanCreateUser,
+  getPhase1PublicCap,
+} from "@/lib/beta-seats";
 import type { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -53,12 +57,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       const name = user.name?.trim() || user.email.split("@")[0] || "User";
+      const googleId = account.providerAccountId;
 
       try {
         await connectDB();
 
-        await User.findOneAndUpdate(
-          { googleId: account.providerAccountId },
+        const seatGate = await assertCanCreateUser(googleId);
+        if (seatGate === "no_seats") {
+          console.warn("[auth] Phase-1 public seats full — blocked new signup");
+          return "/?error=no_seats";
+        }
+
+        const dbUser = await User.findOneAndUpdate(
+          { googleId },
           {
             $set: {
               email: user.email,
@@ -66,7 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               image: user.image ?? undefined,
             },
             $setOnInsert: {
-              googleId: account.providerAccountId,
+              googleId,
               profile: {
                 preferredLocations: [],
                 rolesOfInterest: [],
@@ -78,6 +89,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
           { upsert: true, new: true }
         );
+
+        // Best-effort race guard: two first-time OAuths at the last seat.
+        if (seatGate === "ok_new" && dbUser) {
+          const used = await User.countDocuments();
+          const publicCap = getPhase1PublicCap();
+          if (used > publicCap) {
+            await User.deleteOne({ _id: dbUser._id, googleId });
+            console.warn(
+              "[auth] Phase-1 overshoot after race — rolled back new user"
+            );
+            return "/?error=no_seats";
+          }
+        }
       } catch (err) {
         // Surface as AccessDenied otherwise — log the real cause for Vercel logs.
         console.error("[auth] signIn DB failure", err);

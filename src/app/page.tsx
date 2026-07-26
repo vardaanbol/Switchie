@@ -1,5 +1,7 @@
 import { auth, signIn } from "@/auth";
 import { redirect } from "next/navigation";
+import { connectDB } from "@/lib/db/mongodb";
+import { getBetaSeatStats } from "@/lib/beta-seats";
 import { LandingHero } from "@/components/ui/landing-hero";
 import { LandingFeatures } from "@/components/ui/landing-features";
 import { LandingFooter } from "@/components/layout/landing-footer";
@@ -30,7 +32,7 @@ function GoogleMark() {
 export default async function LandingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
   const session = await auth();
   const params = await searchParams;
@@ -39,9 +41,16 @@ export default async function LandingPage({
     redirect(session.user.profileComplete ? "/dashboard" : "/onboarding");
   }
 
+  await connectDB();
+  const seats = await getBetaSeatStats();
+
   return (
     <main>
-      <LandingHero>
+      <LandingHero
+        seatsLeft={seats.remainingPublic}
+        phaseFull={seats.isPublicFull}
+        noSeatsError={params.error === "no_seats"}
+      >
         <form
           action={async () => {
             "use server";
@@ -58,6 +67,11 @@ export default async function LandingPage({
             Sign in with Google
           </button>
         </form>
+        {seats.isPublicFull && params.error !== "no_seats" ? (
+          <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">
+            Existing yawners can still sign in
+          </p>
+        ) : null}
       </LandingHero>
 
       <LandingFeatures />
