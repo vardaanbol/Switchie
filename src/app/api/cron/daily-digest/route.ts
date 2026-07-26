@@ -16,6 +16,14 @@ import { isProfileComplete } from "@/lib/profile";
 
 export const maxDuration = 300;
 
+/**
+ * Email digests are still in B-phase. Set DIGEST_EMAILS_ENABLED=true to send.
+ * Morning feed refresh always runs for every complete profile.
+ */
+function digestEmailsEnabled() {
+  return process.env.DIGEST_EMAILS_ENABLED?.trim().toLowerCase() === "true";
+}
+
 function authorize(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
   if (!secret) return false;
@@ -23,24 +31,27 @@ function authorize(req: Request) {
   return header === `Bearer ${secret}`;
 }
 
-async function runDigest() {
+async function runMorningRefresh() {
   await connectDB();
+  const emailsOn = digestEmailsEnabled();
   const from = getDigestFromAddress();
-  if (isResendTestFrom(from)) {
+
+  if (emailsOn && isResendTestFrom(from)) {
     console.error(
       "[cron/daily-digest] RESEND_FROM_EMAIL still uses @resend.dev — digests will fail for every inbox except the Resend account owner. Verify a domain and update the env var."
     );
   }
 
-  const users = await User.find({
-    "profile.emailDigestEnabled": true,
-  });
+  // Feed refresh is for everyone with a finished profile — not gated on email.
+  const users = await User.find({});
 
   const results: Array<{
     userId: string;
     email?: string;
+    feedStatus: string;
     emailStatus: string;
     jobs: number;
+    saved?: number;
     error?: string;
   }> = [];
 
@@ -49,6 +60,7 @@ async function runDigest() {
       results.push({
         userId: user._id.toString(),
         email: user.email,
+        feedStatus: "skipped",
         emailStatus: "skipped",
         jobs: 0,
         error: "incomplete profile",
@@ -60,9 +72,38 @@ async function runDigest() {
       const summary = await runJobSearchAgent(user._id.toString());
       await fillReferralsForJobs(summary.referralJobIds);
 
+      const feedResult = {
+        userId: user._id.toString(),
+        email: user.email,
+        feedStatus: "refreshed",
+        emailStatus: "skipped",
+        jobs: summary.fetched,
+        saved: summary.saved,
+      };
+
+      const wantsEmail = Boolean(user.profile?.emailDigestEnabled);
+      if (!emailsOn) {
+        results.push({
+          ...feedResult,
+          emailStatus: "disabled_b_phase",
+        });
+        continue;
+      }
+      if (!wantsEmail) {
+        results.push({
+          ...feedResult,
+          emailStatus: "opted_out",
+        });
+        continue;
+      }
+
       const jobs = await JobListing.find({
         userId: user._id,
-        status: "new",
+        status: { $in: ["new", "viewed"] },
+        foundAt: {
+          // Today's IST morning batch — roughly last 12h covers the cron window.
+          $gte: new Date(Date.now() - 12 * 60 * 60 * 1000),
+        },
       })
         .sort({ matchScore: -1 })
         .limit(8)
@@ -77,11 +118,9 @@ async function runDigest() {
           errorMessage: "no new jobs",
         });
         results.push({
-          userId: user._id.toString(),
-          email: user.email,
+          ...feedResult,
           emailStatus: "skipped",
-          jobs: 0,
-          error: "no new jobs",
+          error: "no new jobs for email",
         });
         continue;
       }
@@ -117,8 +156,7 @@ async function runDigest() {
       });
 
       results.push({
-        userId: user._id.toString(),
-        email: user.email,
+        ...feedResult,
         emailStatus: "sent",
         jobs: jobs.length,
       });
@@ -141,6 +179,7 @@ async function runDigest() {
       results.push({
         userId: user._id.toString(),
         email: user.email,
+        feedStatus: "failed",
         emailStatus: "failed",
         jobs: 0,
         error: message,
@@ -151,6 +190,7 @@ async function runDigest() {
   return {
     from,
     usingTestFrom: isResendTestFrom(from),
+    digestEmailsEnabled: emailsOn,
     results,
   };
 }
@@ -159,7 +199,7 @@ export async function GET(req: Request) {
   if (!authorize(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const payload = await runDigest();
+  const payload = await runMorningRefresh();
   return NextResponse.json({ ok: true, ...payload });
 }
 
@@ -167,6 +207,6 @@ export async function POST(req: Request) {
   if (!authorize(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const payload = await runDigest();
+  const payload = await runMorningRefresh();
   return NextResponse.json({ ok: true, ...payload });
 }

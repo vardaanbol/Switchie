@@ -611,7 +611,8 @@ export function ProfileForm({ initial, mode }: ProfileFormProps) {
         <div>
           <p className="text-sm font-black">Daily email digest</p>
           <p className="mt-0.5 text-xs font-medium text-black/45">
-            Top matches every morning at 6:00 AM IST
+            Under testing — not available for users yet. Your feed still
+            refreshes every morning at 6:00 AM IST either way.
           </p>
         </div>
         <button
