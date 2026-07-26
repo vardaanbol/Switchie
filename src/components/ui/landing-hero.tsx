@@ -67,7 +67,7 @@ export function LandingHero({
               </div>
             ) : null}
 
-            <div className="mt-1 flex w-full justify-center sm:mt-2">
+            <div className="mt-1 flex w-full flex-col items-center sm:mt-2">
               {children}
             </div>
           </div>

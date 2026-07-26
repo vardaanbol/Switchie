@@ -67,11 +67,6 @@ export default async function LandingPage({
             Sign in with Google
           </button>
         </form>
-        {seats.isPublicFull && params.error !== "no_seats" ? (
-          <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">
-            Existing yawners can still sign in
-          </p>
-        ) : null}
       </LandingHero>
 
       <LandingFeatures />
