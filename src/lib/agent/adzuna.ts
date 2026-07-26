@@ -17,7 +17,7 @@ type AdzunaResult = {
 
 const RESULTS_PER_PAGE = 50;
 const PAGES_PER_QUERY = 2;
-const MAX_DAYS_OLD = 21;
+const MAX_DAYS_OLD = 7;
 
 function inferWorkMode(text: string): WorkMode | undefined {
   const lower = text.toLowerCase();

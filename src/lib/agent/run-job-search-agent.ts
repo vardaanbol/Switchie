@@ -6,6 +6,7 @@ import { searchJobsViaGrounding } from "@/lib/agent/search-jobs-via-grounding";
 import { enrichListing, withinExperienceWindow } from "@/lib/agent/enrich-listing";
 import { findReferralContacts } from "@/lib/agent/find-referral-contacts";
 import { capPerCompany, dedupeByTitleCompanyLocation } from "@/lib/agent/dedupe";
+import { filterLiveJobUrls } from "@/lib/jobs/verify-job-url";
 import type { UserProfileContext } from "@/lib/agent/search-jobs-via-grounding";
 
 /** Fewer enrich calls = biggest wall-clock win (each is a Gemini round-trip). */
@@ -13,6 +14,8 @@ const MAX_ENRICH = 8;
 const CONCURRENCY = 6;
 /** Keeps one staffing agency from spending the whole enrichment budget. */
 const MAX_PER_COMPANY = 2;
+/** Probe more than we enrich so dead links don't empty the enrich batch. */
+const VERIFY_POOL = 24;
 
 /** Run tasks with a concurrency cap to stay under Gemini rate limits. */
 async function mapWithConcurrency<T, R>(
@@ -102,10 +105,20 @@ export async function runJobSearchAgent(userId: string): Promise<AgentRunResult>
     if (isDuplicate) skippedDuplicates += 1;
     return !isDuplicate;
   });
-  const candidates = capPerCompany(freshCandidates, MAX_PER_COMPANY).slice(
+
+  const verifyPool = capPerCompany(freshCandidates, MAX_PER_COMPANY).slice(
     0,
-    MAX_ENRICH
+    VERIFY_POOL
   );
+  const { live: liveCandidates, dropped: droppedExpired } =
+    await filterLiveJobUrls(verifyPool, CONCURRENCY);
+  if (droppedExpired > 0) {
+    console.info(
+      `[agent] dropped ${droppedExpired} expired / non-job URLs before enrich`
+    );
+  }
+
+  const candidates = liveCandidates.slice(0, MAX_ENRICH);
 
   const enrichResults = await mapWithConcurrency(candidates, CONCURRENCY, (c) =>
     enrichListing(c, profile)

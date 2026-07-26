@@ -46,6 +46,8 @@ Salary expectation (INR annual): ${profile.salaryExpectationMin ?? "?"}–${prof
 Skills: ${profile.resumeParsedSkills.slice(0, 15).join(", ") || "not provided"}
 
 Use web search to find real, current listings from company career pages or job boards.
+Only return URLs that open a SPECIFIC job posting (apply page / role detail), never a company profile, /jobs index, or careers landing page with no role.
+Prefer postings dated within the last 7 days. Skip closed, filled, or “no openings” pages.
 Return JSON: {
   "jobs": [{
     "title": string,
