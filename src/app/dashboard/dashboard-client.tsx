@@ -356,7 +356,7 @@ export function DashboardClient({
   const emptyCopy: Record<DashboardView, string> = {
     all: "No yawns for today yet. Hit REFRESH, or wait for the morning digest.",
     saved: "No saved jobs yet. Hit Save on a role and it’ll show up here.",
-    applied: "Nothing applied yet. When you hit Applied!, it lands here.",
+    applied: "Nothing applied yet. When you hit Marked as applied, it lands here.",
     shared:
       "No shared yawns yet. When another Yawner sends you a role, it shows up here.",
     calendar: "Open a day on the calendar to check those yawns.",

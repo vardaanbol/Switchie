@@ -905,7 +905,7 @@ function JobCard({
           className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 sm:h-10"
         >
           <ExternalLink className="size-3.5" />
-          View
+          Apply Now
         </a>
         <button
           type="button"
@@ -921,7 +921,7 @@ function JobCard({
           onClick={() => onUpdateStatus(job._id, "applied")}
           className="inline-flex h-11 items-center justify-center rounded-md border-[2.5px] border-black bg-black px-3.5 text-sm font-black text-white shadow-[2px_2px_0_#333] transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:h-10"
         >
-          {job.status === "applied" ? "Applied ✓" : "Applied!"}
+          {job.status === "applied" ? "Mark as applied ✓" : "Mark as applied"}
         </button>
         <button
           type="button"
@@ -1024,7 +1024,7 @@ export function JobsCarousel({
 
       if (next === "saved") toast.success("Saved — find it in the Saved tab");
       else if (next === "applied")
-        toast.success("Marked applied — see it under Applied");
+        toast.success("Marked as applied — see it under Applied");
       else if (next === "dismissed") toast.success("Passed — gone from your feed");
       else toast.success(`Marked as ${next}`);
     } catch (err) {

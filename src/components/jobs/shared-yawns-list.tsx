@@ -228,7 +228,7 @@ function SharedCard({
           className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border-[2.5px] border-black bg-white px-3.5 text-sm font-bold shadow-[2px_2px_0_#000] transition-transform hover:-translate-y-0.5 sm:h-10"
         >
           <ExternalLink className="size-3.5" />
-          View
+          Apply Now
         </a>
         <button
           type="button"
