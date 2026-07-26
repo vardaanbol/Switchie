@@ -32,19 +32,14 @@ const RefreshRateLimit =
 
 export default RefreshRateLimit;
 
-const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function assertRefreshAllowed(userId: mongoose.Types.ObjectId) {
-  // Skip rate limit in local/dev so you can test freely
-  if (process.env.NODE_ENV === "development") {
-    return { allowed: true as const };
-  }
-
   const existing = await RefreshRateLimit.findOne({ userId });
   if (existing) {
     const elapsed = Date.now() - existing.lastRefreshAt.getTime();
-    if (elapsed < ONE_HOUR_MS) {
-      const retryAfterSeconds = Math.ceil((ONE_HOUR_MS - elapsed) / 1000);
+    if (elapsed < ONE_WEEK_MS) {
+      const retryAfterSeconds = Math.ceil((ONE_WEEK_MS - elapsed) / 1000);
       return { allowed: false as const, retryAfterSeconds };
     }
   }

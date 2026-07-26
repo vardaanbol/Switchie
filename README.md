@@ -87,7 +87,7 @@ Check outcomes in MongoDB `digestlogs` (`emailStatus`: `sent` / `failed` / `skip
 | `/dashboard` | Your daily stack of yawns — flip, save, apply, share, pass |
 | `/settings` | Retcon your profile |
 | `/creator` | The creator's issue |
-| `POST /api/jobs/refresh` | Summon the agent on demand (once per hour — heroes need cooldowns) |
+| `POST /api/jobs/refresh` | Summon the agent on demand (once per week — API cost guard) |
 | `POST /api/cron/daily-digest` | The overnight patrol + optional email |
 
 ---

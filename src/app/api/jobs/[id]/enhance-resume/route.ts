@@ -4,6 +4,11 @@ import JobListing from "@/models/JobListing";
 import { getUserResumeProfile } from "@/lib/resume/get-user-resume-profile";
 import { enhanceResumeForJob } from "@/lib/agent/enhance-resume";
 import { isGeminiOverloadedError } from "@/lib/agent/gemini";
+import {
+  assertEnhanceAllowed,
+  markEnhance,
+  MAX_ENHANCES_PER_WEEK,
+} from "@/models/EnhanceRateLimit";
 
 export const maxDuration = 120;
 
@@ -100,6 +105,21 @@ export async function POST(
     );
   }
 
+  const gate = await assertEnhanceAllowed(user._id);
+  if (!gate.allowed) {
+    return NextResponse.json(
+      {
+        error: `We're not allowing more resume enhancements right now — limited to ${MAX_ENHANCES_PER_WEEK} jobs per week to control API costs. Try again next week.`,
+        code: "RATE_LIMITED",
+        retryAfterSeconds: gate.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(gate.retryAfterSeconds) },
+      }
+    );
+  }
+
   try {
     const enhanced = await enhanceResumeForJob({
       resumeText: resume.text,
@@ -123,6 +143,7 @@ export async function POST(
     job.set("enhancedResumeFingerprint", resume.fingerprint);
     job.set("enhancedResumeAt", new Date());
     await job.save();
+    await markEnhance(user._id, job._id);
 
     return NextResponse.json({
       ...payloadFromJob({

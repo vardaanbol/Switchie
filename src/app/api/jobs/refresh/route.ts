@@ -20,7 +20,9 @@ export async function POST() {
   if (!gate.allowed) {
     return NextResponse.json(
       {
-        error: "Rate limited. You can refresh once per hour.",
+        error:
+          "We're not allowing more job refreshes right now — limited to once per week to control API costs. Try again next week.",
+        code: "RATE_LIMITED",
         retryAfterSeconds: gate.retryAfterSeconds,
       },
       {
